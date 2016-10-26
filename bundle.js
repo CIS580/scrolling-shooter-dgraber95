@@ -32,21 +32,25 @@ window.onkeydown = function(event) {
     case "ArrowUp":
     case "w":
       input.up = true;
+      input.down = false;
       event.preventDefault();
       break;
     case "ArrowDown":
     case "s":
       input.down = true;
+      input.up = false;
       event.preventDefault();
       break;
     case "ArrowLeft":
     case "a":
       input.left = true;
+      input.right = false;
       event.preventDefault();
       break;
     case "ArrowRight":
     case "d":
       input.right = true;
+      input.left = false;
       event.preventDefault();
       break;
   }
@@ -185,7 +189,7 @@ function renderGUI(elapsedTime, ctx) {
   // TODO: Render the GUI
 }
 
-},{"./bullet_pool":2,"./camera":3,"./game":4,"./player":6,"./vector":8}],2:[function(require,module,exports){
+},{"./bullet_pool":2,"./camera":3,"./game":4,"./player":5,"./vector":6}],2:[function(require,module,exports){
 "use strict";
 
 /**
@@ -352,7 +356,7 @@ Camera.prototype.toWorldCoordinates = function(screenCoordinates) {
   return Vector.add(screenCoordinates, this);
 }
 
-},{"./vector":8}],4:[function(require,module,exports){
+},{"./vector":6}],4:[function(require,module,exports){
 "use strict";
 
 /**
@@ -415,88 +419,10 @@ Game.prototype.loop = function(newTime) {
 
 /* Classes and Libraries */
 const Vector = require('./vector');
-const SmokeParticles = require('./smoke_particles');
 
 /* Constants */
-const MISSILE_SPEED = 8;
-
-/**
- * @module Missile
- * A class representing a player's missile
- */
-module.exports = exports = Missile;
-
-/**
- * @constructor Missile
- * Creates a missile
- * @param {Vector} position the position of the missile
- * @param {Object} target the target of the missile
- */
-function Missile(position, target) {
-  this.position = {x: position.x, y:position.y}
-  this.target = target;
-  this.angle = 0;
-  this.img = new Image()
-  this.img.src = 'assets/helicopter.png';
-  this.smokeParticles = new SmokeParticles(400);
-}
-
-/**
- * @function update
- * Updates the missile, steering it towards a locked
- * target or straight ahead
- * @param {DOMHighResTimeStamp} elapedTime
- */
-Missile.prototype.update = function(elapsedTime) {
-
-  // set the velocity
-  var velocity = {x: MISSILE_SPEED, y: 0}
-  if(this.target) {
-    var direction = Vector.subtract(this.position, this.target);
-    velocity = Vector.scale(Vector.normalize(direction), MISSILE_SPEED);
-  }
-
-  // determine missile angle
-  this.angle = Math.atan2(velocity.y, velocity.x);
-
-  // move the missile
-  this.position.x += velocity.x;
-  this.position.y += velocity.y;
-
-  // emit smoke
-  this.smokeParticles.emit(this.position);
-
-  // update smoke
-  this.smokeParticles.update(elapsedTime);
-}
-
-/**
- * @function render
- * Renders the missile in world coordinates
- * @param {DOMHighResTimeStamp} elapsedTime
- * @param {CanvasRenderingContext2D} ctx
- */
-Missile.prototype.render = function(elapsedTime, ctx) {
-  // Draw Missile
-  ctx.save();
-  ctx.translate(this.position.x, this.position.y);
-  ctx.rotate(this.angle);
-  ctx.drawImage(this.img, 76, 56, 16, 8, 0, -4, 16, 8);
-  ctx.restore();
-  // Draw Smoke
-  this.smokeParticles.render(elapsedTime, ctx);
-}
-
-},{"./smoke_particles":7,"./vector":8}],6:[function(require,module,exports){
-"use strict";
-
-/* Classes and Libraries */
-const Vector = require('./vector');
-const Missile = require('./missile');
-
-/* Constants */
-const PLAYER_SPEED = 5;
-const BULLET_SPEED = 10;
+const PLAYER_SPEED = 7;
+const BULLET_SPEED = 14;
 
 /**
  * @module Player
@@ -514,10 +440,13 @@ function Player(bullets, missiles) {
   this.missileCount = 4;
   this.bullets = bullets;
   this.angle = 0;
+  this.angle_offset = 0;
   this.position = {x: 200, y: 200};
   this.velocity = {x: 0, y: 0};
-  this.img = new Image()
-  this.img.src = 'assets/tyrian.shp.007D3C.png';
+  this.img = new Image();
+  this.img.src = 'assets/using/ship.png';
+  this.guns = new Image();
+  this.guns.src = 'assets/using/side_guns.png';
 }
 
 /**
@@ -547,9 +476,10 @@ Player.prototype.update = function(elapsedTime, input) {
   this.position.y += this.velocity.y;
 
   // don't let the player move off-screen
-  if(this.position.x < 0) this.position.x = 0;
-  if(this.position.x > 1024) this.position.x = 1024;
-  if(this.position.y > 786) this.position.y = 786;
+  if(this.position.x < 44) this.position.x = 44;
+  if(this.position.x > 980) this.position.x = 980;
+  if(this.position.y > 750) this.position.y = 750;
+  if(this.position.y < 36) this.position.y = 36;
 }
 
 /**
@@ -559,10 +489,11 @@ Player.prototype.update = function(elapsedTime, input) {
  * @param {CanvasRenderingContext2D} ctx
  */
 Player.prototype.render = function(elapasedTime, ctx) {
-  var offset = this.angle * 23;
+  var offset = this.angle * 21;
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
-  ctx.drawImage(this.img, 48+offset, 57, 23, 27, -12.5, -12, 23, 27);
+  ctx.drawImage(this.img, 42+offset, 0, 21, 27, 0, 0, 46, 54);
+  ctx.drawImage(this.guns, 0 ,0, 41, 13, -18, 15, 82, 26);  
   ctx.restore();
 }
 
@@ -591,113 +522,7 @@ Player.prototype.fireMissile = function() {
   }
 }
 
-},{"./missile":5,"./vector":8}],7:[function(require,module,exports){
-"use strict";
-
-/**
- * @module SmokeParticles
- * A class for managing a particle engine that
- * emulates a smoke trail
- */
-module.exports = exports = SmokeParticles;
-
-/**
- * @constructor SmokeParticles
- * Creates a SmokeParticles engine of the specified size
- * @param {uint} size the maximum number of particles to exist concurrently
- */
-function SmokeParticles(maxSize) {
-  this.pool = new Float32Array(3 * maxSize);
-  this.start = 0;
-  this.end = 0;
-  this.wrapped = false;
-  this.max = maxSize;
-}
-
-/**
- * @function emit
- * Adds a new particle at the given position
- * @param {Vector} position
-*/
-SmokeParticles.prototype.emit = function(position) {
-  if(this.end != this.max) {
-    this.pool[3*this.end] = position.x;
-    this.pool[3*this.end+1] = position.y;
-    this.pool[3*this.end+2] = 0.0;
-    this.end++;
-  } else {
-    this.pool[3] = position.x;
-    this.pool[4] = position.y;
-    this.pool[5] = 0.0;
-    this.end = 1;
-  }
-}
-
-/**
- * @function update
- * Updates the particles
- * @param {DOMHighResTimeStamp} elapsedTime
- */
-SmokeParticles.prototype.update = function(elapsedTime) {
-  function updateParticle(i) {
-    this.pool[3*i+2] += elapsedTime;
-    if(this.pool[3*i+2] > 2000) this.start = i;
-  }
-  var i;
-  if(this.wrapped) {
-    for(i = 0; i < this.end; i++){
-      updateParticle.call(this, i);
-    }
-    for(i = this.start; i < this.max; i++){
-      updateParticle.call(this, i);
-    }
-  } else {
-    for(i = this.start; i < this.end; i++) {
-      updateParticle.call(this, i);
-    }
-  }
-}
-
-/**
- * @function render
- * Renders all bullets in our array.
- * @param {DOMHighResTimeStamp} elapsedTime
- * @param {CanvasRenderingContext2D} ctx
- */
-SmokeParticles.prototype.render = function(elapsedTime, ctx) {
-  function renderParticle(i){
-    var alpha = 1 - (this.pool[3*i+2] / 1000);
-    var radius = 0.1 * this.pool[3*i+2];
-    if(radius > 5) radius = 5;
-    ctx.beginPath();
-    ctx.arc(
-      this.pool[3*i],   // X position
-      this.pool[3*i+1], // y position
-      radius, // radius
-      0,
-      2*Math.PI
-    );
-    ctx.fillStyle = 'rgba(160, 160, 160,' + alpha + ')';
-    ctx.fill();
-  }
-
-  // Render the particles individually
-  var i;
-  if(this.wrapped) {
-    for(i = 0; i < this.end; i++){
-      renderParticle.call(this, i);
-    }
-    for(i = this.start; i < this.max; i++){
-      renderParticle.call(this, i);
-    }
-  } else {
-    for(i = this.start; i < this.end; i++) {
-      renderParticle.call(this, i);
-    }
-  }
-}
-
-},{}],8:[function(require,module,exports){
+},{"./vector":6}],6:[function(require,module,exports){
 "use strict";
 
 /**

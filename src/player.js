@@ -2,11 +2,10 @@
 
 /* Classes and Libraries */
 const Vector = require('./vector');
-const Missile = require('./missile');
 
 /* Constants */
-const PLAYER_SPEED = 5;
-const BULLET_SPEED = 10;
+const PLAYER_SPEED = 7;
+const BULLET_SPEED = 14;
 
 /**
  * @module Player
@@ -24,10 +23,13 @@ function Player(bullets, missiles) {
   this.missileCount = 4;
   this.bullets = bullets;
   this.angle = 0;
+  this.angle_offset = 0;
   this.position = {x: 200, y: 200};
   this.velocity = {x: 0, y: 0};
-  this.img = new Image()
-  this.img.src = 'assets/tyrian.shp.007D3C.png';
+  this.img = new Image();
+  this.img.src = 'assets/using/ship.png';
+  this.guns = new Image();
+  this.guns.src = 'assets/using/side_guns.png';
 }
 
 /**
@@ -57,9 +59,10 @@ Player.prototype.update = function(elapsedTime, input) {
   this.position.y += this.velocity.y;
 
   // don't let the player move off-screen
-  if(this.position.x < 0) this.position.x = 0;
-  if(this.position.x > 1024) this.position.x = 1024;
-  if(this.position.y > 786) this.position.y = 786;
+  if(this.position.x < 44) this.position.x = 44;
+  if(this.position.x > 980) this.position.x = 980;
+  if(this.position.y > 750) this.position.y = 750;
+  if(this.position.y < 36) this.position.y = 36;
 }
 
 /**
@@ -69,10 +72,11 @@ Player.prototype.update = function(elapsedTime, input) {
  * @param {CanvasRenderingContext2D} ctx
  */
 Player.prototype.render = function(elapasedTime, ctx) {
-  var offset = this.angle * 23;
+  var offset = this.angle * 21;
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
-  ctx.drawImage(this.img, 48+offset, 57, 23, 27, -12.5, -12, 23, 27);
+  ctx.drawImage(this.img, 42+offset, 0, 21, 27, 0, 0, 46, 54);
+  ctx.drawImage(this.guns, 0 ,0, 41, 13, -18, 15, 82, 26);  
   ctx.restore();
 }
 

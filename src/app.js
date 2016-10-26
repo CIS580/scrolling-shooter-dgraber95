@@ -31,21 +31,25 @@ window.onkeydown = function(event) {
     case "ArrowUp":
     case "w":
       input.up = true;
+      input.down = false;
       event.preventDefault();
       break;
     case "ArrowDown":
     case "s":
       input.down = true;
+      input.up = false;
       event.preventDefault();
       break;
     case "ArrowLeft":
     case "a":
       input.left = true;
+      input.right = false;
       event.preventDefault();
       break;
     case "ArrowRight":
     case "d":
       input.right = true;
+      input.left = false;
       event.preventDefault();
       break;
   }
