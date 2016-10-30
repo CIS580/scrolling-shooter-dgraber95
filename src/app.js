@@ -15,12 +15,15 @@ var input = {
   up: false,
   down: false,
   left: false,
-  right: false
+  right: false,
+  firing: false
 }
 var camera = new Camera(canvas);
 var bullets = new BulletPool(10);
 var missiles = [];
 var player = new Player(bullets, missiles);
+
+var temp = true;
 
 /**
  * @function onkeydown
@@ -52,6 +55,15 @@ window.onkeydown = function(event) {
       input.left = false;
       event.preventDefault();
       break;
+    case " ":
+      input.firing = true;
+      event.preventDefault();
+      break;
+    case "p":
+      if(temp){
+        temp = false;
+        player.updateShot1();
+      }
   }
 }
 
@@ -81,6 +93,12 @@ window.onkeyup = function(event) {
       input.right = false;
       event.preventDefault();
       break;
+    case " ":
+      input.firing = false;
+      event.preventDefault();
+      break;      
+    case "p":
+      temp = true;
   }
 }
 
