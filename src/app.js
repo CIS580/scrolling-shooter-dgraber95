@@ -11,6 +11,7 @@ const Enemy1 = require('./enemies/enemy1');
 
 /* Global variables */
 var canvas = document.getElementById('screen');
+var screenSize = {width: canvas.width, height: canvas.height}
 var game = new Game(canvas, update, render);
 var input = {
   up: false,
@@ -19,23 +20,29 @@ var input = {
   right: false,
   firing: false
 }
-var camera = new Camera(canvas);
-var bullets = new BulletPool(10);
-var missiles = [];
-var player = new Player(bullets, missiles);
-var temp = true;
+// var camera = new Camera(canvas);
+// var bullets = new BulletPool(10);
+// var missiles = [];
+// var player = new Player(bullets, missiles);
+var player = new Player();
+var debugInput = true;
+var levels = [];
+var curLevel = 0;
+levels.push(new Image());
+levels.push(new Image());
+levels.push(new Image());
 
-var level1 = new Image();
-level1.src = 'assets/Backgrounds/Grassy.png';
-var level1Size = {width: 810, height: 4320};
-var level1Top = level1Size.height - 786;
+levels[0].src = 'assets/Backgrounds/level1.png';
+levels[1].src = 'assets/Backgrounds/level2.png';
+levels[2].src = 'assets/Backgrounds/level3.png';
+
+var levelSize = {width: 810, height: 4320};
+var levelTop = levelSize.height - screenSize.height;
 
 var waitingEnemies = [];
-for(var i = 0; i < 20; i++){
-  for(var j =0; j < 5; j++){
-    waitingEnemies.push(new Enemy1({x: 200, y: -50}, 100*i + 10*j));
-  }
-}
+buildLevel();
+
+
 var enemies = [];
 var enemyTimer = 0;
 
@@ -75,8 +82,8 @@ window.onkeydown = function(event) {
       event.preventDefault();
       break;
     default:
-      if(temp){
-        temp = false;
+      if(debugInput){
+        debugInput = false;
         player.debug(event.key);
       }
       break;
@@ -114,7 +121,7 @@ window.onkeyup = function(event) {
       event.preventDefault();
       break;      
     default:
-      temp = true;
+      debugInput = true;
       break;
   }
 }
@@ -147,8 +154,8 @@ function update(elapsedTime) {
     waitingEnemies.splice(0, 1);
   }
 
-  level1Top-=2;
-  if(level1Top <= 0) level1Top = level1Size.height;
+  levelTop-=2;
+  if(levelTop <= 0) levelTop = levelSize.height;
 
   // update the player
   player.update(elapsedTime, input);
@@ -175,76 +182,53 @@ function update(elapsedTime) {
   */
 function render(elapsedTime, ctx) {
   ctx.fillStyle = "white"
-  ctx.fillRect(0, 0, 1024, 786);
+  ctx.fillRect(0, 0, 1024, screenSize.height);
 
-  ctx.font = "30px Arial";
-  ctx.strokeText(level1Top, 820, 750);
-  ctx.strokeText(enemyTimer, 820, 600);
-  ctx.stroke();
-
-
-  // TODO: Render backgroundsa
-
-  if(level1Top < level1Size.height - 786){  
-    ctx.drawImage(level1, 
-                  0, level1Top, level1Size.width, 786,
-                  0, 0, level1Size.width, 786
+  if(levelTop < levelSize.height - screenSize.height){  
+    ctx.drawImage(levels[curLevel], 
+                  0, levelTop, levelSize.width, screenSize.height,
+                  0, 0, levelSize.width, screenSize.height
                   );
   }
 
   else{
-    ctx.drawImage(level1, 
-                  0, level1Top, level1Size.width, 786,
-                  0, 0, level1Size.width, 786 
+    ctx.drawImage(levels[curLevel], 
+                  0, levelTop, levelSize.width, screenSize.height,
+                  0, 0, levelSize.width, screenSize.height 
                   );
-    ctx.drawImage(level1, 
-                  0, 0, level1Size.width, 786,
-                  0, (level1Size.height - level1Top), level1Size.width, 786 
-                  );                    
+    ctx.drawImage(levels[curLevel], 
+                  0, 0, levelSize.width, screenSize.height,
+                  0, (levelSize.height - levelTop), levelSize.width, screenSize.height 
+                  );
   }
 
-  // Transform the coordinate system using
-  // the camera position BEFORE rendering
-  // objects in the world - that way they
-  // can be rendered in WORLD cooridnates
-  // but appear in SCREEN coordinates
-  ctx.save();
-  ctx.translate(-camera.x, -camera.y);
-  renderWorld(elapsedTime, ctx);
-  ctx.restore();
+  for(var i = 0; i < enemies.length; i++){
+    enemies[i].render(elapsedTime, ctx);
+  }
 
-  // Render the GUI without transforming the
-  // coordinate system
+  // Render the player
+  player.render(elapsedTime, ctx);  
+
+  // Render the GUI 
   renderGUI(elapsedTime, ctx);
 }
 
-/**
-  * @function renderWorld
-  * Renders the entities in the game world
-  * IN WORLD COORDINATES
-  * @param {DOMHighResTimeStamp} elapsedTime
-  * @param {CanvasRenderingContext2D} ctx the context to render to
-  */
-function renderWorld(elapsedTime, ctx) {
-    // Render the bullets
-    bullets.render(elapsedTime, ctx);
-
-    // Render the missiles
-    missiles.forEach(function(missile) {
-      missile.render(elapsedTime, ctx);
-    });
-    
-    for(var i = 0; i < enemies.length; i++){
-      enemies[i].render(elapsedTime, ctx);
+function buildLevel(){
+  for(var i = 0; i < 5; i++){
+    for(var j =0; j < 5; j++){
+      waitingEnemies.push(new Enemy1({x: 200, y: -50}, 100*i + 10*j));
     }
-
-    // Render the player
-    player.render(elapsedTime, ctx);
+  }
+  var direction = 1;
+  for(var i = 0; i < 8; i++){
+    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*30}, 600, i%2+1))
+    direction *= -1;
+  }
 }
 
 /**
   * @function renderGUI
-  * Renders the game's GUI IN SCREEN COORDINATES
+  * Renders the game's GUI
   * @param {DOMHighResTimeStamp} elapsedTime
   * @param {CanvasRenderingContext2D} ctx
   */

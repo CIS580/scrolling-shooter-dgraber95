@@ -46,6 +46,7 @@ function Player() {
   this.shielding = false;
   this.shieldTimer = SHIELD_TIMER;
   this.shields = 100;
+  this.lives = 3;
 }
 
 Player.prototype.debug = function(key){
