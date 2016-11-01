@@ -25,6 +25,9 @@ var player = new Player(bullets, missiles);
 
 var temp = true;
 
+var level1 = new Image();
+level1.src = 'assets/Backgrounds/Grassy.png';
+
 /**
  * @function onkeydown
  * Handles keydown events
@@ -160,6 +163,7 @@ function render(elapsedTime, ctx) {
   ctx.fillRect(0, 0, 1024, 786);
 
   // TODO: Render background
+  ctx.drawImage(level1, 0, 0, 1200, 6400, 0, 0, 600, 3200);
 
   // Transform the coordinate system using
   // the camera position BEFORE rendering

@@ -26,6 +26,9 @@ var player = new Player(bullets, missiles);
 
 var temp = true;
 
+var level1 = new Image();
+level1.src = 'assets/Backgrounds/Grassy.png';
+
 /**
  * @function onkeydown
  * Handles keydown events
@@ -161,6 +164,7 @@ function render(elapsedTime, ctx) {
   ctx.fillRect(0, 0, 1024, 786);
 
   // TODO: Render background
+  ctx.drawImage(level1, 0, 0, 1200, 6400, 0, 0, 600, 3200);
 
   // Transform the coordinate system using
   // the camera position BEFORE rendering
@@ -472,12 +476,10 @@ function Player(bullets, missiles) {
   this.guns.src = 'assets/using/ship/side_guns.png';
   this.shield = new Image();
   this.shield.src = 'assets/using/ship/shield.png';
-  this.shot1s = [];
+  this.shots = [];
   this.shot1Timer = SHOT1_TIMER;
   this.shot3Timer = SHOT3_TIMER;
   this.shot1Level = 0;
-  this.shot2s = [];
-  this.shot3s = [];
   this.shot3Level = 0;
 }
 
@@ -528,36 +530,25 @@ Player.prototype.update = function(elapsedTime, input) {
 
   if(input.firing){
     if(this.shot1Timer <= 0){
-      this.shot1s.push(new Shot1(this.position, this.shot1Level));
-      this.shot2s.push(new Shot2(this.position, -1));
-      this.shot2s.push(new Shot2(this.position, 1));
+      this.shots.push(new Shot1(this.position, this.shot1Level));
+      this.shots.push(new Shot2(this.position, -1));
+      this.shots.push(new Shot2(this.position, 1));
       this.shot1Timer = SHOT1_TIMER;
     }
     if(this.shot3Timer <= 0){
       var posx = this.position.x;
       var posy = this.position.y;
-      this.shot3s.push(new Shot3({x: posx + 33, y: posy}, this.shot3Level));
-      this.shot3s.push(new Shot3({x: posx - 27, y : posy}, this.shot3Level));
+      this.shots.push(new Shot3({x: posx - 27, y : posy}, this.shot3Level));
+      this.shots.push(new Shot3({x: posx + 33, y: posy}, this.shot3Level));
       this.shot3Timer = SHOT3_TIMER;      
     }
   }
 
-  for(var i = 0; i < 30; i++){
-    if(this.shot1s[i]){
-      this.shot1s[i].update(elapsedTime);
-      if(this.shot1s[i].remove)
-        this.shot1s.splice(i, 1);
-    }
-    if(this.shot2s[i]){
-      this.shot2s[i].update(elapsedTime);
-      if(this.shot2s[i].remove)
-        this.shot2s.splice(i, 1);
-    }
-    if(this.shot3s[i]){
-      this.shot3s[i].update(elapsedTime);
-      if(this.shot3s[i].remove)
-        this.shot3s.splice(i, 1);
-    }    
+  for(var i = 0; i < this.shots.length; i++){
+    this.shots[i].update(elapsedTime);
+  }
+  if(this.shots.length && this.shots[this.shots.length - 1].remove){
+    this.shots.splice(this.shots.length - 1, 1);
   }
 }
 
@@ -576,13 +567,8 @@ Player.prototype.render = function(elapsedTime, ctx) {
   ctx.drawImage(this.shield, 0 ,0, 556, 556, -27, -20, 100, 100);  
   ctx.restore();
 
-  for(var i = 0; i < 30; i++){
-    if(this.shot1s[i])
-    this.shot1s[i].render(elapsedTime, ctx);
-    if(this.shot2s[i])
-    this.shot2s[i].render(elapsedTime, ctx);
-    if(this.shot3s[i])
-    this.shot3s[i].render(elapsedTime, ctx);    
+  for(var i = 0; i < this.shots.length; i++){
+    this.shots[i].render(elapsedTime, ctx);
   }
 }
 

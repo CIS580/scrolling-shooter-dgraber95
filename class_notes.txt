@@ -1,0 +1,27 @@
+
+IMAGE TRANSPARENCY
+1. Load the image
+2. Create a canvas (the same size as the image loaded in step 1)
+3. Draw the image into that canvas
+4. Call getImageData() on the canvas. This gives us a UInt8ClampedArray (width*height*4 in length)
+5. Iterate through array, replacing "transparent pixels"
+    for(var i = 0; i < array.length; i+=4){
+        if(array[i] == 191 && array[i+1] == 220 && array[i+2] == 191){
+            array[i+3] = 0; // Set the alpha to 0
+        }
+    }
+
+6. Save the results as our spritesheet
+    a. print image data to the step 2 canvas (which you've erased) with canvas.putImageData(arr, 0, 0) and then draw the canvas
+    instead of drawing the spritesheet
+
+
+PARALLELISM
+We use Web Workers - var worker = new Worker("script.js")
+    1. Runs on its own context (memory space) 
+    2. Runs on a separate thread. 
+    3. Communicates with parent thread through message passing
+    4. No access to the Document Object Model
+    5. Can transfer ownership of buffers
+    6. Send messages with worker.postMessage({}) // pass in some javascript Object
+    7. Handle events with worker.onmessage(function(msg){ switch(msg.type)})
