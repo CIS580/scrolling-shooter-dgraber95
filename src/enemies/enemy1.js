@@ -27,8 +27,10 @@ function Enemy1(position, startTime) {
   this.remove = false;
   this.frame = 0;
   this.frameTimer = MS_PER_FRAME;
-  this.width = 15;
-  this.height = 19;
+  this.imgWidth = 15;
+  this.imgHeight = 19;
+  this.width = 2*this.imgWidth;
+  this.height = 2*this.imgHeight;
 }
 
 
@@ -49,8 +51,8 @@ Enemy1.prototype.update = function(time) {
   // Apply velocity
   this.position.y += SPEED;
 
-  if(this.position.x < 0 || this.position.x > this.worldWidth ||
-     this.position.y < -100 || this.position.y > this.worldHeight){
+  if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
+     this.position.y < -50 || this.position.y > this.worldHeight + 50){
     this.remove = true;;
   }
 }
@@ -62,7 +64,7 @@ Enemy1.prototype.update = function(time) {
  */
 Enemy1.prototype.render = function(time, ctx) {
     ctx.drawImage(this.image,
-                  this.width*this.frame, 0, this.width, this.height,
-                  this.position.x, this.position.y, 2*this.width, 2*this.height
+                  this.imgWidth*this.frame, 0, this.imgWidth, this.imgHeight,
+                  this.position.x, this.position.y, this.width, this.height
                   );  
 }

@@ -33,7 +33,7 @@ var level1Top = level1Size.height - 786;
 var waitingEnemies = [];
 for(var i = 0; i < 20; i++){
   for(var j =0; j < 5; j++){
-    waitingEnemies.push(new Enemy1({x: 200, y: -100}, 100*i + 10*j));
+    waitingEnemies.push(new Enemy1({x: 200, y: -50}, 100*i + 10*j));
   }
 }
 var enemies = [];
@@ -74,11 +74,12 @@ window.onkeydown = function(event) {
       input.firing = true;
       event.preventDefault();
       break;
-    case "p":
+    default:
       if(temp){
         temp = false;
-        player.updateShot1();
+        player.debug(event.key);
       }
+      break;
   }
 }
 
@@ -112,8 +113,9 @@ window.onkeyup = function(event) {
       input.firing = false;
       event.preventDefault();
       break;      
-    case "p":
+    default:
       temp = true;
+      break;
   }
 }
 
@@ -158,7 +160,7 @@ function update(elapsedTime) {
     if(enemy.remove)
       markedForRemoval.unshift(i);
   });
-  // Remove enemies that have gone off-screen
+  // Remove enemies that are off-screen or have been destroyed
   markedForRemoval.forEach(function(index){
     enemies.splice(index, 1);
   });
