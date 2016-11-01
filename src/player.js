@@ -2,15 +2,17 @@
 
 /* Classes and Libraries */
 const Vector = require('./vector');
-const Shot1 = require('./shot1');
-const Shot2 = require('./shot2');
-const Shot3 = require('./shot3');
+const Shot1 = require('./shots/shot1');
+const Shot2 = require('./shots/shot2');
+const Shot3 = require('./shots/shot3');
+const Shot4 = require('./shots/shot4');
 
 /* Constants */
 const PLAYER_SPEED = 7;
 const BULLET_SPEED = 14;
 const SHOT1_TIMER = 200;
 const SHOT3_TIMER = 600;
+const SHIELD_TIMER = 100;
 
 /**
  * @module Player
@@ -42,16 +44,33 @@ function Player(bullets, missiles) {
   this.shot3Timer = SHOT3_TIMER;
   this.shot1Level = 0;
   this.shot3Level = 0;
+  this.shot4Level = 0;
+  this.shielding = false;
+  this.shieldTimer = SHIELD_TIMER;
 }
 
 Player.prototype.updateShot1 = function(){
+  this.shielding = true;
+
   if(this.shot1Level < 3){
     this.shot1Level++;
   }
   else this.shot1Level = 0;
 
+  if(this.shot4Level < 2){
+    this.shot4Level++;
+  }
+  else this.shot4Level = 0;  
+
   if(this.shot3Level == 0) this.shot3Level = 1;
   else this.shot3Level = 0;
+}
+
+Player.prototype.struck = function(damage){
+  if(this.shields > 0)
+    this.shielding = true;
+    this.shields -= damage;
+
 }
 
 /**
@@ -62,6 +81,14 @@ Player.prototype.updateShot1 = function(){
  * boolean properties: up, left, right, down
  */
 Player.prototype.update = function(elapsedTime, input) {
+
+  if(this.shielding){
+    this.shieldTimer -= elapsedTime;
+    if(this.shieldTimer <= 0){
+      this.shielding = false;
+      this.shieldTimer = SHIELD_TIMER;
+    }
+  }
 
   // set the velocity
   this.velocity.x = 0;
@@ -82,7 +109,7 @@ Player.prototype.update = function(elapsedTime, input) {
 
   // don't let the player move off-screen
   if(this.position.x < 44) this.position.x = 44;
-  if(this.position.x > 980) this.position.x = 980;
+  if(this.position.x > 720) this.position.x = 720;
   if(this.position.y > 750) this.position.y = 750;
   if(this.position.y < 36) this.position.y = 36;
 
@@ -101,16 +128,23 @@ Player.prototype.update = function(elapsedTime, input) {
       var posy = this.position.y;
       this.shots.push(new Shot3({x: posx - 27, y : posy}, this.shot3Level));
       this.shots.push(new Shot3({x: posx + 33, y: posy}, this.shot3Level));
+      this.shots.push(new Shot4(this.position, -1, this.shot4Level));
+      this.shots.push(new Shot4(this.position, 1, this.shot4Level));
       this.shot3Timer = SHOT3_TIMER;      
     }
   }
 
+  var markedForRemoval = [];
+  var self = this;
   for(var i = 0; i < this.shots.length; i++){
     this.shots[i].update(elapsedTime);
+    if(this.shots[i].remove){
+      markedForRemoval.unshift(i);
+    }
   }
-  if(this.shots.length && this.shots[this.shots.length - 1].remove){
-    this.shots.splice(this.shots.length - 1, 1);
-  }
+  markedForRemoval.forEach(function(index){
+    self.shots.splice(index, 1);
+  });
 }
 
 /**
@@ -124,8 +158,10 @@ Player.prototype.render = function(elapsedTime, ctx) {
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
   ctx.drawImage(this.img, 42+offset, 0, 21, 27, 0, 0, 46, 54);
-  ctx.drawImage(this.guns, 0 ,0, 41, 13, -18, 15, 82, 26);  
-  ctx.drawImage(this.shield, 0 ,0, 556, 556, -27, -20, 100, 100);  
+  ctx.drawImage(this.guns, 0 ,0, 41, 13, -18, 15, 82, 26);
+  if(this.shielding){
+    ctx.drawImage(this.shield, 0 ,0, 556, 556, -27, -20, 100, 100);  
+  }
   ctx.restore();
 
   for(var i = 0; i < this.shots.length; i++){

@@ -7,6 +7,7 @@ const Vector = require('./vector');
 const Camera = require('./camera');
 const Player = require('./player');
 const BulletPool = require('./bullet_pool');
+const Enemy1 = require('./enemies/enemy1');
 
 
 /* Global variables */
@@ -23,13 +24,23 @@ var camera = new Camera(canvas);
 var bullets = new BulletPool(10);
 var missiles = [];
 var player = new Player(bullets, missiles);
-
 var temp = true;
 
 var level1 = new Image();
 level1.src = 'assets/Backgrounds/Grassy.png';
 var level1Size = {width: 810, height: 4320};
 var level1Top = level1Size.height - 786;
+
+var waitingEnemies = [];
+for(var i = 0; i < 20; i++){
+  for(var j =0; j < 5; j++){
+    waitingEnemies.push(new Enemy1({x: 200, y: -100}, 100*i + 10*j));
+  }
+}
+var enemies = [];
+var enemyTimer = 0;
+
+
 /**
  * @function onkeydown
  * Handles keydown events
@@ -128,31 +139,29 @@ masterLoop(performance.now());
  */
 function update(elapsedTime) {
 
+  enemyTimer++;
+
+  if(waitingEnemies.length && enemyTimer >= waitingEnemies[0].startTime){
+    enemies.push(waitingEnemies[0]);
+    waitingEnemies.splice(0, 1);
+  }
+
   level1Top-=2;
   if(level1Top <= 0) level1Top = level1Size.height;
 
   // update the player
   player.update(elapsedTime, input);
 
-  // update the camera
-  camera.update(player.position);
-
-  // Update bullets
-  bullets.update(elapsedTime, function(bullet){
-    if(!camera.onScreen(bullet)) return true;
-    return false;
-  });
-
-  // Update missiles
+  // Update enemies
   var markedForRemoval = [];
-  missiles.forEach(function(missile, i){
-    missile.update(elapsedTime);
-    if(Math.abs(missile.position.x - camera.x) > camera.width * 2)
+  enemies.forEach(function(enemy, i){
+    enemy.update(elapsedTime);
+    if(enemy.remove)
       markedForRemoval.unshift(i);
   });
-  // Remove missiles that have gone off-screen
+  // Remove enemies that have gone off-screen
   markedForRemoval.forEach(function(index){
-    missiles.splice(index, 1);
+    enemies.splice(index, 1);
   });
 }
 
@@ -169,7 +178,9 @@ function render(elapsedTime, ctx) {
 
   ctx.font = "30px Arial";
   ctx.strokeText(level1Top, 820, 750);
+  ctx.strokeText(enemyTimer, 820, 600);
   ctx.stroke();
+
 
   // TODO: Render backgroundsa
 
@@ -221,6 +232,10 @@ function renderWorld(elapsedTime, ctx) {
     missiles.forEach(function(missile) {
       missile.render(elapsedTime, ctx);
     });
+    
+    for(var i = 0; i < enemies.length; i++){
+      enemies[i].render(elapsedTime, ctx);
+    }
 
     // Render the player
     player.render(elapsedTime, ctx);
@@ -236,7 +251,7 @@ function renderGUI(elapsedTime, ctx) {
   // TODO: Render the GUI
 }
 
-},{"./bullet_pool":2,"./camera":3,"./game":4,"./player":5,"./vector":9}],2:[function(require,module,exports){
+},{"./bullet_pool":2,"./camera":3,"./enemies/enemy1":4,"./game":5,"./player":6,"./vector":11}],2:[function(require,module,exports){
 "use strict";
 
 /**
@@ -403,7 +418,77 @@ Camera.prototype.toWorldCoordinates = function(screenCoordinates) {
   return Vector.add(screenCoordinates, this);
 }
 
-},{"./vector":9}],4:[function(require,module,exports){
+},{"./vector":11}],4:[function(require,module,exports){
+"use strict";
+
+const SPEED = 5;
+const MS_PER_FRAME = 1000/16;
+
+/**
+ * @module exports the Enemy1 class
+ */
+module.exports = exports = Enemy1;
+
+
+/**
+ * @constructor Enemy1
+ * Creates a new enemy1 object
+ * @param {Postition} position object specifying an x and y
+ */
+function Enemy1(position, startTime) {
+  this.startTime = startTime;
+  this.worldWidth = 850;
+  this.worldHeight = 800;
+  this.position = {
+    x: position.x,
+    y: position.y
+  };
+  this.image = new Image();
+  this.image.src = 'assets/using/enemies/enemy_1.png';
+  this.remove = false;
+  this.frame = 0;
+  this.frameTimer = MS_PER_FRAME;
+  this.width = 15;
+  this.height = 19;
+}
+
+
+/**
+ * @function updates the enemy1 object
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ */
+Enemy1.prototype.update = function(time) {
+    this.frameTimer -= time;
+    if(this.frameTimer <= 0){
+        this.frameTimer = MS_PER_FRAME;
+        this.frame++;
+        if(this.frame >= 8){
+            this.frame = 0;
+        }
+    }
+
+  // Apply velocity
+  this.position.y += SPEED;
+
+  if(this.position.x < 0 || this.position.x > this.worldWidth ||
+     this.position.y < -100 || this.position.y > this.worldHeight){
+    this.remove = true;;
+  }
+}
+
+/**
+ * @function renders the enemy1 into the provided context
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ * {CanvasRenderingContext2D} ctx the context to render into
+ */
+Enemy1.prototype.render = function(time, ctx) {
+    ctx.drawImage(this.image,
+                  this.width*this.frame, 0, this.width, this.height,
+                  this.position.x, this.position.y, 2*this.width, 2*this.height
+                  );  
+}
+
+},{}],5:[function(require,module,exports){
 "use strict";
 
 /**
@@ -461,20 +546,22 @@ Game.prototype.loop = function(newTime) {
   this.frontCtx.drawImage(this.backBuffer, 0, 0);
 }
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 "use strict";
 
 /* Classes and Libraries */
 const Vector = require('./vector');
-const Shot1 = require('./shot1');
-const Shot2 = require('./shot2');
-const Shot3 = require('./shot3');
+const Shot1 = require('./shots/shot1');
+const Shot2 = require('./shots/shot2');
+const Shot3 = require('./shots/shot3');
+const Shot4 = require('./shots/shot4');
 
 /* Constants */
 const PLAYER_SPEED = 7;
 const BULLET_SPEED = 14;
 const SHOT1_TIMER = 200;
 const SHOT3_TIMER = 600;
+const SHIELD_TIMER = 100;
 
 /**
  * @module Player
@@ -506,16 +593,33 @@ function Player(bullets, missiles) {
   this.shot3Timer = SHOT3_TIMER;
   this.shot1Level = 0;
   this.shot3Level = 0;
+  this.shot4Level = 0;
+  this.shielding = false;
+  this.shieldTimer = SHIELD_TIMER;
 }
 
 Player.prototype.updateShot1 = function(){
+  this.shielding = true;
+
   if(this.shot1Level < 3){
     this.shot1Level++;
   }
   else this.shot1Level = 0;
 
+  if(this.shot4Level < 2){
+    this.shot4Level++;
+  }
+  else this.shot4Level = 0;  
+
   if(this.shot3Level == 0) this.shot3Level = 1;
   else this.shot3Level = 0;
+}
+
+Player.prototype.struck = function(damage){
+  if(this.shields > 0)
+    this.shielding = true;
+    this.shields -= damage;
+
 }
 
 /**
@@ -526,6 +630,14 @@ Player.prototype.updateShot1 = function(){
  * boolean properties: up, left, right, down
  */
 Player.prototype.update = function(elapsedTime, input) {
+
+  if(this.shielding){
+    this.shieldTimer -= elapsedTime;
+    if(this.shieldTimer <= 0){
+      this.shielding = false;
+      this.shieldTimer = SHIELD_TIMER;
+    }
+  }
 
   // set the velocity
   this.velocity.x = 0;
@@ -546,7 +658,7 @@ Player.prototype.update = function(elapsedTime, input) {
 
   // don't let the player move off-screen
   if(this.position.x < 44) this.position.x = 44;
-  if(this.position.x > 980) this.position.x = 980;
+  if(this.position.x > 720) this.position.x = 720;
   if(this.position.y > 750) this.position.y = 750;
   if(this.position.y < 36) this.position.y = 36;
 
@@ -565,16 +677,23 @@ Player.prototype.update = function(elapsedTime, input) {
       var posy = this.position.y;
       this.shots.push(new Shot3({x: posx - 27, y : posy}, this.shot3Level));
       this.shots.push(new Shot3({x: posx + 33, y: posy}, this.shot3Level));
+      this.shots.push(new Shot4(this.position, -1, this.shot4Level));
+      this.shots.push(new Shot4(this.position, 1, this.shot4Level));
       this.shot3Timer = SHOT3_TIMER;      
     }
   }
 
+  var markedForRemoval = [];
+  var self = this;
   for(var i = 0; i < this.shots.length; i++){
     this.shots[i].update(elapsedTime);
+    if(this.shots[i].remove){
+      markedForRemoval.unshift(i);
+    }
   }
-  if(this.shots.length && this.shots[this.shots.length - 1].remove){
-    this.shots.splice(this.shots.length - 1, 1);
-  }
+  markedForRemoval.forEach(function(index){
+    self.shots.splice(index, 1);
+  });
 }
 
 /**
@@ -588,8 +707,10 @@ Player.prototype.render = function(elapsedTime, ctx) {
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
   ctx.drawImage(this.img, 42+offset, 0, 21, 27, 0, 0, 46, 54);
-  ctx.drawImage(this.guns, 0 ,0, 41, 13, -18, 15, 82, 26);  
-  ctx.drawImage(this.shield, 0 ,0, 556, 556, -27, -20, 100, 100);  
+  ctx.drawImage(this.guns, 0 ,0, 41, 13, -18, 15, 82, 26);
+  if(this.shielding){
+    ctx.drawImage(this.shield, 0 ,0, 556, 556, -27, -20, 100, 100);  
+  }
   ctx.restore();
 
   for(var i = 0; i < this.shots.length; i++){
@@ -622,7 +743,7 @@ Player.prototype.fireMissile = function() {
   }
 }
 
-},{"./shot1":6,"./shot2":7,"./shot3":8,"./vector":9}],6:[function(require,module,exports){
+},{"./shots/shot1":7,"./shots/shot2":8,"./shots/shot3":9,"./shots/shot4":10,"./vector":11}],7:[function(require,module,exports){
 "use strict";
 
 const SPEED = 8;
@@ -639,7 +760,7 @@ module.exports = exports = Shot1;
  * @param {Postition} position object specifying an x and y
  */
 function Shot1(position, level) {
-  this.worldWidth = 1100;
+  this.worldWidth = 850;
   this.worldHeight = 750;
   this.position = {
     x: position.x + 11,
@@ -677,7 +798,7 @@ Shot1.prototype.render = function(time, ctx) {
     ctx.translate(-this.position.x, -this.position.y);
 }
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 "use strict";
 
 const SPEED = 8;
@@ -694,7 +815,7 @@ module.exports = exports = Shot2;
  * @param {Postition} position object specifying an x and y
  */
 function Shot2(position, direction) {
-  this.worldWidth = 1100;
+  this.worldWidth = 850;
   this.worldHeight = 750;
   this.direction = direction
   this.position = {
@@ -733,7 +854,7 @@ Shot2.prototype.render = function(time, ctx) {
     ctx.translate(-this.position.x, -this.position.y);
 }
 
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 "use strict";
 
 const SPEED = 5;
@@ -750,7 +871,7 @@ module.exports = exports = Shot3;
  * @param {Postition} position object specifying an x and y
  */
 function Shot3(position, level) {
-  this.worldWidth = 1100;
+  this.worldWidth = 850;
   this.worldHeight = 750;
   this.level = level;
   this.position = {
@@ -789,7 +910,64 @@ Shot3.prototype.render = function(time, ctx) {
     
 }
 
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
+"use strict";
+
+const SPEED = 8;
+
+/**
+ * @module exports the Shot4 class
+ */
+module.exports = exports = Shot4;
+
+
+/**
+ * @constructor Shot4
+ * Creates a new shot4 object
+ * @param {Postition} position object specifying an x and y
+ */
+function Shot4(position, direction, level) {
+  this.worldWidth = 850;
+  this.worldHeight = 750;
+  this.direction = direction;
+  this.level = level;
+  this.position = {
+    x: position.x + 11 + 10*this.direction,
+    y: position.y
+  };
+  this.image = new Image();
+  this.image.src = 'assets/using/shots/shots_4.png';
+  this.remove = false;
+}
+
+
+/**
+ * @function updates the shot4 object
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ */
+Shot4.prototype.update = function(time) {
+  // Apply velocity
+  this.position.x += SPEED * this.direction;
+
+  if(this.position.x < 0 || this.position.x > this.worldWidth ||
+     this.position.y < 0 || this.position.y > this.worldHeight){
+    this.remove = true;;
+  }
+}
+
+/**
+ * @function renders the shot4 into the provided context
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ * {CanvasRenderingContext2D} ctx the context to render into
+ */
+Shot4.prototype.render = function(time, ctx) {
+    ctx.translate(this.position.x, this.position.y);
+    ctx.drawImage(this.image, 28*this.level + 7 + 7*this.direction ,0, 14, 10, 0, 20, 28, 20);  
+    ctx.translate(-this.position.x, -this.position.y);
+
+}
+
+},{}],11:[function(require,module,exports){
 "use strict";
 
 /**

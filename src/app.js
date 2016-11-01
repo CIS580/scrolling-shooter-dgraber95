@@ -6,6 +6,7 @@ const Vector = require('./vector');
 const Camera = require('./camera');
 const Player = require('./player');
 const BulletPool = require('./bullet_pool');
+const Enemy1 = require('./enemies/enemy1');
 
 
 /* Global variables */
@@ -22,13 +23,23 @@ var camera = new Camera(canvas);
 var bullets = new BulletPool(10);
 var missiles = [];
 var player = new Player(bullets, missiles);
-
 var temp = true;
 
 var level1 = new Image();
 level1.src = 'assets/Backgrounds/Grassy.png';
 var level1Size = {width: 810, height: 4320};
 var level1Top = level1Size.height - 786;
+
+var waitingEnemies = [];
+for(var i = 0; i < 20; i++){
+  for(var j =0; j < 5; j++){
+    waitingEnemies.push(new Enemy1({x: 200, y: -100}, 100*i + 10*j));
+  }
+}
+var enemies = [];
+var enemyTimer = 0;
+
+
 /**
  * @function onkeydown
  * Handles keydown events
@@ -127,31 +138,29 @@ masterLoop(performance.now());
  */
 function update(elapsedTime) {
 
+  enemyTimer++;
+
+  if(waitingEnemies.length && enemyTimer >= waitingEnemies[0].startTime){
+    enemies.push(waitingEnemies[0]);
+    waitingEnemies.splice(0, 1);
+  }
+
   level1Top-=2;
   if(level1Top <= 0) level1Top = level1Size.height;
 
   // update the player
   player.update(elapsedTime, input);
 
-  // update the camera
-  camera.update(player.position);
-
-  // Update bullets
-  bullets.update(elapsedTime, function(bullet){
-    if(!camera.onScreen(bullet)) return true;
-    return false;
-  });
-
-  // Update missiles
+  // Update enemies
   var markedForRemoval = [];
-  missiles.forEach(function(missile, i){
-    missile.update(elapsedTime);
-    if(Math.abs(missile.position.x - camera.x) > camera.width * 2)
+  enemies.forEach(function(enemy, i){
+    enemy.update(elapsedTime);
+    if(enemy.remove)
       markedForRemoval.unshift(i);
   });
-  // Remove missiles that have gone off-screen
+  // Remove enemies that have gone off-screen
   markedForRemoval.forEach(function(index){
-    missiles.splice(index, 1);
+    enemies.splice(index, 1);
   });
 }
 
@@ -168,7 +177,9 @@ function render(elapsedTime, ctx) {
 
   ctx.font = "30px Arial";
   ctx.strokeText(level1Top, 820, 750);
+  ctx.strokeText(enemyTimer, 820, 600);
   ctx.stroke();
+
 
   // TODO: Render backgroundsa
 
@@ -220,6 +231,10 @@ function renderWorld(elapsedTime, ctx) {
     missiles.forEach(function(missile) {
       missile.render(elapsedTime, ctx);
     });
+    
+    for(var i = 0; i < enemies.length; i++){
+      enemies[i].render(elapsedTime, ctx);
+    }
 
     // Render the player
     player.render(elapsedTime, ctx);

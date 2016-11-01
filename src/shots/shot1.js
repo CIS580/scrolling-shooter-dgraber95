@@ -14,7 +14,7 @@ module.exports = exports = Shot1;
  * @param {Postition} position object specifying an x and y
  */
 function Shot1(position, level) {
-  this.worldWidth = 1100;
+  this.worldWidth = 850;
   this.worldHeight = 750;
   this.position = {
     x: position.x + 11,

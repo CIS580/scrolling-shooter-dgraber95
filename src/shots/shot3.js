@@ -1,40 +1,39 @@
 "use strict";
 
-const SPEED = 8;
+const SPEED = 5;
 
 /**
- * @module exports the Shot2 class
+ * @module exports the Shot3 class
  */
-module.exports = exports = Shot2;
+module.exports = exports = Shot3;
 
 
 /**
- * @constructor Shot2
- * Creates a new shot2 object
+ * @constructor Shot3
+ * Creates a new shot3 object
  * @param {Postition} position object specifying an x and y
  */
-function Shot2(position, direction) {
-  this.worldWidth = 1100;
+function Shot3(position, level) {
+  this.worldWidth = 850;
   this.worldHeight = 750;
-  this.direction = direction
+  this.level = level;
   this.position = {
     x: position.x + 11,
     y: position.y
   };
   this.image = new Image();
-  this.image.src = 'assets/using/shots/shots_2.png';
+  this.image.src = 'assets/using/shots/shots_3.png';
   this.remove = false;
 }
 
 
 /**
- * @function updates the shot2 object
+ * @function updates the shot3 object
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  */
-Shot2.prototype.update = function(time) {
+Shot3.prototype.update = function(time) {
   // Apply velocity
   this.position.y -= SPEED;
-  this.position.x += SPEED * this.direction;
 
   if(this.position.x < -50 || this.position.x > this.worldWidth ||
      this.position.y < -50 || this.position.y > this.worldHeight){
@@ -43,12 +42,13 @@ Shot2.prototype.update = function(time) {
 }
 
 /**
- * @function renders the shot2 into the provided context
+ * @function renders the shot3 into the provided context
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  * {CanvasRenderingContext2D} ctx the context to render into
  */
-Shot2.prototype.render = function(time, ctx) {
+Shot3.prototype.render = function(time, ctx) {
     ctx.translate(this.position.x, this.position.y);
-    ctx.drawImage(this.image, 6 + 6*this.direction ,0, 12, 12, 0, 20, 18, 18);  
+    ctx.drawImage(this.image, 9*this.level ,0, 9, 14, 0, 20, 18, 28);  
     ctx.translate(-this.position.x, -this.position.y);
+    
 }
