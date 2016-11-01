@@ -28,7 +28,8 @@ var temp = true;
 
 var level1 = new Image();
 level1.src = 'assets/Backgrounds/Grassy.png';
-
+var level1Size = {width: 810, height: 4320};
+var level1Top = level1Size.height - 786;
 /**
  * @function onkeydown
  * Handles keydown events
@@ -127,6 +128,9 @@ masterLoop(performance.now());
  */
 function update(elapsedTime) {
 
+  level1Top-=2;
+  if(level1Top <= 0) level1Top = level1Size.height;
+
   // update the player
   player.update(elapsedTime, input);
 
@@ -160,11 +164,32 @@ function update(elapsedTime) {
   * @param {CanvasRenderingContext2D} ctx the context to render to
   */
 function render(elapsedTime, ctx) {
-  ctx.fillStyle = "black";
+  ctx.fillStyle = "white"
   ctx.fillRect(0, 0, 1024, 786);
 
-  // TODO: Render background
-  ctx.drawImage(level1, 0, 0, 1200, 6400, 0, 0, 600, 3200);
+  ctx.font = "30px Arial";
+  ctx.strokeText(level1Top, 820, 750);
+  ctx.stroke();
+
+  // TODO: Render backgroundsa
+
+  if(level1Top < level1Size.height - 786){  
+    ctx.drawImage(level1, 
+                  0, level1Top, level1Size.width, 786,
+                  0, 0, level1Size.width, 786
+                  );
+  }
+
+  else{
+    ctx.drawImage(level1, 
+                  0, level1Top, level1Size.width, 786,
+                  0, 0, level1Size.width, 786 
+                  );
+    ctx.drawImage(level1, 
+                  0, 0, level1Size.width, 786,
+                  0, (level1Size.height - level1Top), level1Size.width, 786 
+                  );                    
+  }
 
   // Transform the coordinate system using
   // the camera position BEFORE rendering
