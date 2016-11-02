@@ -14,7 +14,8 @@ module.exports = exports = Enemy5;
  * Creates a new enemy5 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy5(position, startTime, direction) {
+function Enemy5(position, startTime, direction, level, enemyShots) {
+    this.level = level;
     this.startTime = startTime;
     this.worldWidth = 850;
     this.worldHeight = 800;
@@ -37,6 +38,9 @@ function Enemy5(position, startTime, direction) {
     this.imgHeight = 21;
     this.width = 2*this.imgWidth;
     this.height = 2*this.imgHeight;
+    this.shotWait = 1200 - 150*this.level;
+    this.shotTimer = this.shotWait;
+    this.enemyShots = enemyShots;
 }
 
 
@@ -44,7 +48,8 @@ function Enemy5(position, startTime, direction) {
  * @function updates the enemy5 object
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  */
-Enemy5.prototype.update = function(time) {
+Enemy5.prototype.update = function(time, playerPos) {
+    // Update frames
     this.frameTimer -= time;
     if(this.frameTimer <= 0){
         this.frameTimer = MS_PER_FRAME;
@@ -54,6 +59,16 @@ Enemy5.prototype.update = function(time) {
         }
     }
 
+    // Fire when ready
+    this.shotTimer -= time;
+    if(this.shotTimer <= 0){
+        this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
+                                            y: this.position.y + 10},
+                                            playerPos));
+        this.shotTimer = this.shotWait;
+    }
+
+    // Swap x and y velocity every so often for zig zagging
     this.distanceTravelled += 3;
     if(this.distanceTravelled >= DIST_TO_SWITCH){
         var temp = this.velocity.y;

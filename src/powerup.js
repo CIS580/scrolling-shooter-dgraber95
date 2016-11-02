@@ -1,6 +1,6 @@
 "use strict";
 
-const SPEED = 4;
+const SPEED = 3;
 
 /**
  * @module exports the Powerup class
@@ -29,6 +29,7 @@ function Powerup(position, startTime, type) {
     this.imgHeight = 21;
     this.width = 1.5*this.imgWidth;
     this.height = 1.5*this.imgHeight;
+    this.radius = this.width/2;
 }
 
 

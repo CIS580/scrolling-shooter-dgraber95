@@ -13,7 +13,8 @@ module.exports = exports = Enemy3;
  * Creates a new enemy3 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy3(position, startTime, type) {
+function Enemy3(position, startTime, type, level, enemyShots) {
+    this.level = level;    
     this.startTime = startTime;
     this.worldWidth = 850;
     this.worldHeight = 800;
@@ -29,6 +30,9 @@ function Enemy3(position, startTime, type) {
     this.imgHeight = 26;
     this.width = 2*this.imgWidth;
     this.height = 2*this.imgHeight;
+    this.enemyShots = enemyShots;
+    this.shotWait = 1200 - 150*this.level;
+    this.shotTimer = this.shotWait;
 }
 
 
@@ -36,7 +40,7 @@ function Enemy3(position, startTime, type) {
  * @function updates the enemy3 object
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  */
-Enemy3.prototype.update = function(time) {
+Enemy3.prototype.update = function(time, playerPos) {
     // Apply velocity
     switch(this.type){
         case 0:
@@ -50,10 +54,19 @@ Enemy3.prototype.update = function(time) {
             break;
     }
 
-  if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
-     this.position.y < -50 || this.position.y > this.worldHeight + 50){
-    this.remove = true;;
-  }
+    // Fire when ready
+    this.shotTimer -= time;
+    if(this.shotTimer <= 0){
+        this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
+                                            y: this.position.y + 10},
+                                            playerPos));
+        this.shotTimer = this.shotWait;
+    }
+
+    if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
+        this.position.y < -50 || this.position.y > this.worldHeight + 50){
+        this.remove = true;;
+    }
 }
 
 /**

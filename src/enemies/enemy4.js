@@ -13,7 +13,8 @@ module.exports = exports = Enemy4;
  * Creates a new enemy4 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy4(position, startTime, acceleration) {
+function Enemy4(position, startTime, acceleration, level, enemyShots) {
+    this.level = level;    
     this.startTime = startTime;
     this.worldWidth = 850;
     this.worldHeight = 800;
@@ -35,6 +36,9 @@ function Enemy4(position, startTime, acceleration) {
     this.imgHeight = 18;
     this.width = 2*this.imgWidth;
     this.height = 2*this.imgHeight;
+    this.enemyShots = enemyShots;
+    this.shotWait = 1200 - 150*this.level;
+    this.shotTimer = this.shotWait;
 }
 
 
@@ -42,7 +46,7 @@ function Enemy4(position, startTime, acceleration) {
  * @function updates the enemy4 object
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  */
-Enemy4.prototype.update = function(time) {
+Enemy4.prototype.update = function(time, playerPos) {
     this.frameTimer -= time;
     if(this.frameTimer <= 0){
         this.frameTimer = MS_PER_FRAME;
@@ -52,17 +56,27 @@ Enemy4.prototype.update = function(time) {
         }
     }
 
-  // Apply velocity
-  this.position.y += this.velocity.y;
-  this.position.x += this.velocity.x;
+    // Apply velocity
+    this.position.y += this.velocity.y;
+    this.position.x += this.velocity.x;
 
-  // Apply acceleration
-  this.velocity.x -= this.acceleration/10;
+    // Apply acceleration
+    this.velocity.x -= this.acceleration/10;
 
-  if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
-     this.position.y < -50 || this.position.y > this.worldHeight + 50){
-    this.remove = true;;
-  }
+
+    // Fire when ready
+    this.shotTimer -= time;
+    if(this.shotTimer <= 0){
+        this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
+                                            y: this.position.y + 10},
+                                            playerPos));
+        this.shotTimer = this.shotWait;
+    }  
+
+    if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
+        this.position.y < -50 || this.position.y > this.worldHeight + 50){
+        this.remove = true;;
+    }
 }
 
 /**
