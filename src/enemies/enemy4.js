@@ -1,6 +1,6 @@
 "use strict";
 
-const MS_PER_FRAME = 1000/16;
+const MS_PER_FRAME = 1000/8;
 
 /**
  * @module exports the Enemy4 class
@@ -23,8 +23,8 @@ function Enemy4(position, startTime, acceleration) {
         y: position.y
     };
     this.velocity = {
-        x: 5 * this.direction,
-        y: 4
+        x: 8 * this.acceleration,
+        y: 5
     }
     this.image = new Image();
     this.image.src = 'assets/using/enemies/enemy_4.png';
@@ -57,7 +57,7 @@ Enemy4.prototype.update = function(time) {
   this.position.x += this.velocity.x;
 
   // Apply acceleration
-  this.velocity.x -= this.acceleration/2;
+  this.velocity.x -= this.acceleration/10;
 
   if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
      this.position.y < -50 || this.position.y > this.worldHeight + 50){

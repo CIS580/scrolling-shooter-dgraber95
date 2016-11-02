@@ -1,7 +1,7 @@
 "use strict";
 
 const MS_PER_FRAME = 1000/16;
-const DIST_TO_SWITCH = 50;
+const DIST_TO_SWITCH = 150;
 
 /**
  * @module exports the Enemy5 class
@@ -25,7 +25,7 @@ function Enemy5(position, startTime, direction) {
     };
     this.velocity = {
         x: 0,
-        y: 3
+        y: 5
     }
     this.image = new Image();
     this.image.src = 'assets/using/enemies/enemy_5.png';

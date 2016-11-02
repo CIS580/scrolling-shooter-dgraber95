@@ -1,6 +1,6 @@
 "use strict";
 
-const SPEED = 5;
+const SPEED = 4;
 
 /**
  * @module exports the Enemy3 class
@@ -63,7 +63,7 @@ Enemy3.prototype.update = function(time) {
  */
 Enemy3.prototype.render = function(time, ctx) {
     ctx.drawImage(this.image,
-                  this.imgWidth*this.frame, 0, this.imgWidth, this.imgHeight,
+                  this.imgWidth*this.type, 0, this.imgWidth, this.imgHeight,
                   this.position.x, this.position.y, this.width, this.height
                   );  
 }

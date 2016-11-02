@@ -8,10 +8,15 @@ const Camera = require('./camera');
 const Player = require('./player');
 const BulletPool = require('./bullet_pool');
 const Enemy1 = require('./enemies/enemy1');
+const Enemy2 = require('./enemies/enemy2');
+const Enemy3 = require('./enemies/enemy3');
+const Enemy4 = require('./enemies/enemy4');
+const Enemy5 = require('./enemies/enemy5');
 
 
 /* Global variables */
 var canvas = document.getElementById('screen');
+var screenSize = {width: canvas.width, height: canvas.height}
 var game = new Game(canvas, update, render);
 var input = {
   up: false,
@@ -20,23 +25,37 @@ var input = {
   right: false,
   firing: false
 }
-var camera = new Camera(canvas);
-var bullets = new BulletPool(10);
-var missiles = [];
-var player = new Player(bullets, missiles);
-var temp = true;
+// var camera = new Camera(canvas);
+// var bullets = new BulletPool(10);
+// var missiles = [];
+// var player = new Player(bullets, missiles);
+var player = new Player();
+var debugInput = true;
+var levels = [];
+var curLevel = 0;
+levels.push(new Image());
+//levels.push(new Image());
+//levels.push(new Image());
 
-var level1 = new Image();
-level1.src = 'assets/Backgrounds/Grassy.png';
-var level1Size = {width: 810, height: 4320};
-var level1Top = level1Size.height - 786;
+levels[0].src = 'assets/Backgrounds/level1.png';
+//levels[1].src = 'assets/Backgrounds/level2.png';
+//levels[2].src = 'assets/Backgrounds/level3.png';
+
+var levelSize = {width: 810, height: 4320};
+var levelTop = levelSize.height - screenSize.height;
+var cloudTop = levelSize.height - screenSize.height;
+var platTop = levelSize.height - screenSize.height;
+
+var clouds = new Image();
+clouds.src = 'assets/Backgrounds/clouds.png';
+
+var platforms = new Image();
+platforms.src = 'assets/Backgrounds/platforms.png';
 
 var waitingEnemies = [];
-for(var i = 0; i < 20; i++){
-  for(var j =0; j < 5; j++){
-    waitingEnemies.push(new Enemy1({x: 200, y: -100}, 100*i + 10*j));
-  }
-}
+buildLevel();
+
+
 var enemies = [];
 var enemyTimer = 0;
 
@@ -75,11 +94,12 @@ window.onkeydown = function(event) {
       input.firing = true;
       event.preventDefault();
       break;
-    case "p":
-      if(temp){
-        temp = false;
-        player.updateShot1();
+    default:
+      if(debugInput){
+        debugInput = false;
+        player.debug(event.key);
       }
+      break;
   }
 }
 
@@ -113,8 +133,9 @@ window.onkeyup = function(event) {
       input.firing = false;
       event.preventDefault();
       break;      
-    case "p":
-      temp = true;
+    default:
+      debugInput = true;
+      break;
   }
 }
 
@@ -140,14 +161,19 @@ masterLoop(performance.now());
 function update(elapsedTime) {
 
   enemyTimer++;
+  console.log(enemyTimer);
 
   if(waitingEnemies.length && enemyTimer >= waitingEnemies[0].startTime){
     enemies.push(waitingEnemies[0]);
     waitingEnemies.splice(0, 1);
   }
 
-  level1Top-=2;
-  if(level1Top <= 0) level1Top = level1Size.height;
+  levelTop-=1;
+  cloudTop -= 2;
+  platTop -= 3;
+  if(levelTop <= 0) levelTop = levelSize.height;
+  if(cloudTop <= 0) cloudTop = levelSize.height;
+  if(platTop <= 0) platTop = levelSize.height;
 
   // update the player
   player.update(elapsedTime, input);
@@ -159,7 +185,7 @@ function update(elapsedTime) {
     if(enemy.remove)
       markedForRemoval.unshift(i);
   });
-  // Remove enemies that have gone off-screen
+  // Remove enemies that are off-screen or have been destroyed
   markedForRemoval.forEach(function(index){
     enemies.splice(index, 1);
   });
@@ -173,77 +199,170 @@ function update(elapsedTime) {
   * @param {CanvasRenderingContext2D} ctx the context to render to
   */
 function render(elapsedTime, ctx) {
+
+
+
+
   ctx.fillStyle = "white"
-  ctx.fillRect(0, 0, 1024, 786);
+  ctx.fillRect(0, 0, 1024, screenSize.height);
 
   ctx.font = "30px Arial";
-  ctx.strokeText(level1Top, 820, 750);
   ctx.strokeText(enemyTimer, 820, 600);
   ctx.stroke();
 
-
-  // TODO: Render backgroundsa
-
-  if(level1Top < level1Size.height - 786){  
-    ctx.drawImage(level1, 
-                  0, level1Top, level1Size.width, 786,
-                  0, 0, level1Size.width, 786
+  if(levelTop < levelSize.height - screenSize.height){  
+    ctx.drawImage(levels[curLevel], 
+                  0, levelTop, levelSize.width, screenSize.height,
+                  0, 0, levelSize.width, screenSize.height
                   );
   }
 
   else{
-    ctx.drawImage(level1, 
-                  0, level1Top, level1Size.width, 786,
-                  0, 0, level1Size.width, 786 
+    ctx.drawImage(levels[curLevel], 
+                  0, levelTop, levelSize.width, screenSize.height,
+                  0, 0, levelSize.width, screenSize.height 
                   );
-    ctx.drawImage(level1, 
-                  0, 0, level1Size.width, 786,
-                  0, (level1Size.height - level1Top), level1Size.width, 786 
-                  );                    
+    ctx.drawImage(levels[curLevel], 
+                  0, 0, levelSize.width, screenSize.height,
+                  0, (levelSize.height - levelTop), levelSize.width, screenSize.height 
+                  );
   }
 
-  // Transform the coordinate system using
-  // the camera position BEFORE rendering
-  // objects in the world - that way they
-  // can be rendered in WORLD cooridnates
-  // but appear in SCREEN coordinates
-  ctx.save();
-  ctx.translate(-camera.x, -camera.y);
-  renderWorld(elapsedTime, ctx);
-  ctx.restore();
+  ctx.globalAlpha = 0.7;
+  if(cloudTop < levelSize.height - screenSize.height){  
+    ctx.drawImage(clouds, 
+                  0, cloudTop, levelSize.width, screenSize.height,
+                  0, 0, levelSize.width, screenSize.height
+                  );
+  }
 
-  // Render the GUI without transforming the
-  // coordinate system
+  else{
+    ctx.drawImage(clouds, 
+                  0, cloudTop, levelSize.width, screenSize.height,
+                  0, 0, levelSize.width, screenSize.height 
+                  );
+    ctx.drawImage(clouds, 
+                  0, 0, levelSize.width, screenSize.height,
+                  0, (levelSize.height - cloudTop), levelSize.width, screenSize.height 
+                  );
+  }
+  ctx.globalAlpha = 1;
+
+  if(platTop < levelSize.height - screenSize.height){  
+    ctx.drawImage(platforms, 
+                  0, platTop, levelSize.width, screenSize.height,
+                  0, 0, levelSize.width, screenSize.height
+                  );
+  }
+
+  else{
+    ctx.drawImage(platforms, 
+                  0, platTop, levelSize.width, screenSize.height,
+                  0, 0, levelSize.width, screenSize.height 
+                  );
+    ctx.drawImage(platforms, 
+                  0, 0, levelSize.width, screenSize.height,
+                  0, (levelSize.height - platTop), levelSize.width, screenSize.height 
+                  );
+  }
+
+  for(var i = 0; i < enemies.length; i++){
+    enemies[i].render(elapsedTime, ctx);
+  }
+
+  // Render the player
+  player.render(elapsedTime, ctx);  
+
+  // Render the GUI 
   renderGUI(elapsedTime, ctx);
 }
 
-/**
-  * @function renderWorld
-  * Renders the entities in the game world
-  * IN WORLD COORDINATES
-  * @param {DOMHighResTimeStamp} elapsedTime
-  * @param {CanvasRenderingContext2D} ctx the context to render to
-  */
-function renderWorld(elapsedTime, ctx) {
-    // Render the bullets
-    bullets.render(elapsedTime, ctx);
+function buildLevel(){
 
-    // Render the missiles
-    missiles.forEach(function(missile) {
-      missile.render(elapsedTime, ctx);
-    });
-    
-    for(var i = 0; i < enemies.length; i++){
-      enemies[i].render(elapsedTime, ctx);
+  // Enemy 1
+  for(var k = 0; k < 4; k++){
+    for(var i = 0; i < 5; i++){
+      for(var j =0; j < 5; j++){
+        waitingEnemies.push(new Enemy1({x: 200 + 100*i, y: -50}, 300 + 100*i + 10*j + 1000*k));
+      }
     }
+  }
 
-    // Render the player
-    player.render(elapsedTime, ctx);
+  // Enemy 2
+  var multiplier = 1440;
+  for(var i = 0; i < 3; i++){
+    waitingEnemies.push(new Enemy2({x: 650, y: -50}, multiplier*i + 115))
+    waitingEnemies.push(new Enemy2({x: 480, y: -50}, multiplier*i + 170))
+    waitingEnemies.push(new Enemy2({x: 100, y: -50}, multiplier*i + 200))
+    waitingEnemies.push(new Enemy2({x: 400, y: -50}, multiplier*i + 390))
+    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 430))
+    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 590))
+    waitingEnemies.push(new Enemy2({x: 300, y: -50}, multiplier*i + 590))
+    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 700))
+    waitingEnemies.push(new Enemy2({x: 650, y: -50}, multiplier*i + 750))
+    waitingEnemies.push(new Enemy2({x: 270, y: -50}, multiplier*i + 800))
+    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 850))
+    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 950))
+    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 1000))
+    waitingEnemies.push(new Enemy2({x: 200, y: -50}, multiplier*i + 1050))
+    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 1100))
+  }
+
+  // Enemy 3
+  var direction = 1;
+  for(var i = 0; i < 8; i++){
+    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 100, i%2+1))
+    direction *= -1;
+  }
+  for(var i = 0; i < 8; i++){
+    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 2800, i%2+1))
+    direction *= -1;
+  }
+  for(var i = 0; i < 8; i++){
+    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 3800, i%2+1))
+    direction *= -1;
+  }    
+  for(var i = 0; i < 6; i++){
+    waitingEnemies.push(new Enemy3({x: 60 + 130*i, y: -50}, 900 + 20*i, 0))
+    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 1700 + 50*i, 0))
+    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 2000 + 50*i, 0))
+    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 3000 + 50*i, 0))
+  }  
+
+
+
+  // Enemy 4
+  for(var i = 0; i < 8; i++){
+    waitingEnemies.push(new Enemy4({x: -50, y: -50}, 600 +  10*i, 1))
+  }
+  for(var j = 0; j < 4; j++){
+    for(var i = 0; i < 8; i++){
+      waitingEnemies.push(new Enemy4({x: -50, y: -50}, 1000 + 1000*j +  10*i, 1))
+    }
+    for(var i = 0; i < 8; i++){
+      waitingEnemies.push(new Enemy4({x: 860, y: -50}, 1100 +  1100*j +  10*i, -1))
+    }  
+  }
+
+
+
+  // Enemy 5
+  for(var i = 0; i < 6; i++){
+    waitingEnemies.push(new Enemy5({x: 10, y: -50}, 1100 + 30*i, 1))
+  }
+  for(var i = 0; i < 6; i++){
+    waitingEnemies.push(new Enemy5({x: 800, y: -50}, 2800 + 30*i, -1))
+  }  
+
+
+  waitingEnemies.sort(function(a, b){
+    return a.startTime - b.startTime;
+  });
 }
 
 /**
   * @function renderGUI
-  * Renders the game's GUI IN SCREEN COORDINATES
+  * Renders the game's GUI
   * @param {DOMHighResTimeStamp} elapsedTime
   * @param {CanvasRenderingContext2D} ctx
   */
@@ -251,7 +370,7 @@ function renderGUI(elapsedTime, ctx) {
   // TODO: Render the GUI
 }
 
-},{"./bullet_pool":2,"./camera":3,"./enemies/enemy1":4,"./game":5,"./player":6,"./vector":11}],2:[function(require,module,exports){
+},{"./bullet_pool":2,"./camera":3,"./enemies/enemy1":4,"./enemies/enemy2":5,"./enemies/enemy3":6,"./enemies/enemy4":7,"./enemies/enemy5":8,"./game":9,"./player":10,"./vector":15}],2:[function(require,module,exports){
 "use strict";
 
 /**
@@ -418,7 +537,7 @@ Camera.prototype.toWorldCoordinates = function(screenCoordinates) {
   return Vector.add(screenCoordinates, this);
 }
 
-},{"./vector":11}],4:[function(require,module,exports){
+},{"./vector":15}],4:[function(require,module,exports){
 "use strict";
 
 const SPEED = 5;
@@ -448,8 +567,10 @@ function Enemy1(position, startTime) {
   this.remove = false;
   this.frame = 0;
   this.frameTimer = MS_PER_FRAME;
-  this.width = 15;
-  this.height = 19;
+  this.imgWidth = 15;
+  this.imgHeight = 19;
+  this.width = 2*this.imgWidth;
+  this.height = 2*this.imgHeight;
 }
 
 
@@ -470,8 +591,8 @@ Enemy1.prototype.update = function(time) {
   // Apply velocity
   this.position.y += SPEED;
 
-  if(this.position.x < 0 || this.position.x > this.worldWidth ||
-     this.position.y < -100 || this.position.y > this.worldHeight){
+  if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
+     this.position.y < -50 || this.position.y > this.worldHeight + 50){
     this.remove = true;;
   }
 }
@@ -483,12 +604,329 @@ Enemy1.prototype.update = function(time) {
  */
 Enemy1.prototype.render = function(time, ctx) {
     ctx.drawImage(this.image,
-                  this.width*this.frame, 0, this.width, this.height,
-                  this.position.x, this.position.y, 2*this.width, 2*this.height
+                  this.imgWidth*this.frame, 0, this.imgWidth, this.imgHeight,
+                  this.position.x, this.position.y, this.width, this.height
                   );  
 }
 
 },{}],5:[function(require,module,exports){
+"use strict";
+
+const MOVEMENT = 3;
+const MS_PER_FRAME = 1000/50;
+
+/**
+ * @module exports the Enemy2 class
+ */
+module.exports = exports = Enemy2;
+
+
+/**
+ * @constructor Enemy2
+ * Creates a new enemy2 object
+ * @param {Postition} position object specifying an x and y
+ */
+function Enemy2(position, startTime) {
+  this.startTime = startTime;
+  this.worldWidth = 850;
+  this.worldHeight = 800;
+  this.position = {
+    x: position.x,
+    y: position.y
+  };
+  this.image = new Image();
+  this.image.src = 'assets/using/enemies/enemy_22.png';
+  this.remove = false;
+  this.frame = 0;
+  this.frameTimer = MS_PER_FRAME;
+  this.imgWidth = 24;
+  this.imgHeight = 28;
+  this.width = 2.25*this.imgWidth;
+  this.height = 2.25*this.imgHeight;
+  this.state = 'default';
+}
+
+
+/**
+ * @function updates the enemy2 object
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ */
+Enemy2.prototype.update = function(time) {
+    if(this.state == 'firing'){
+        this.frameTimer -= time;
+        if(this.frameTimer <= 0){
+            this.frameTimer = MS_PER_FRAME;
+            this.frame++;
+            if(this.frame >= 3){
+                // fire a new shot
+
+                this.state = 'default';
+
+                this.frame = 0;
+            }
+        }
+    }
+
+  // Apply movement
+  this.position.y += MOVEMENT;
+
+  if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
+     this.position.y < -50 || this.position.y > this.worldHeight + 50){
+    this.remove = true;;
+  }
+}
+
+/**
+ * @function renders the enemy2 into the provided context
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ * {CanvasRenderingContext2D} ctx the context to render into
+ */
+Enemy2.prototype.render = function(time, ctx) {
+    ctx.drawImage(this.image,
+                  this.imgWidth*this.frame, 0, this.imgWidth, this.imgHeight,
+                  this.position.x, this.position.y, this.width, this.height
+                  );  
+}
+
+},{}],6:[function(require,module,exports){
+"use strict";
+
+const SPEED = 4;
+
+/**
+ * @module exports the Enemy3 class
+ */
+module.exports = exports = Enemy3;
+
+
+/**
+ * @constructor Enemy3
+ * Creates a new enemy3 object
+ * @param {Postition} position object specifying an x and y
+ */
+function Enemy3(position, startTime, type) {
+    this.startTime = startTime;
+    this.worldWidth = 850;
+    this.worldHeight = 800;
+    this.type = type; // 0: flies down, 1: right, 2: left
+    this.position = {
+        x: position.x,
+        y: position.y
+    };
+    this.image = new Image();
+    this.image.src = 'assets/using/enemies/enemy_3.png';
+    this.remove = false;
+    this.imgWidth = 24;
+    this.imgHeight = 26;
+    this.width = 2*this.imgWidth;
+    this.height = 2*this.imgHeight;
+}
+
+
+/**
+ * @function updates the enemy3 object
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ */
+Enemy3.prototype.update = function(time) {
+    // Apply velocity
+    switch(this.type){
+        case 0:
+            this.position.y += SPEED;
+            break;
+        case 1:
+            this.position.x += SPEED;
+            break;
+        case 2:
+            this.position.x -= SPEED;
+            break;
+    }
+
+  if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
+     this.position.y < -50 || this.position.y > this.worldHeight + 50){
+    this.remove = true;;
+  }
+}
+
+/**
+ * @function renders the enemy3 into the provided context
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ * {CanvasRenderingContext2D} ctx the context to render into
+ */
+Enemy3.prototype.render = function(time, ctx) {
+    ctx.drawImage(this.image,
+                  this.imgWidth*this.type, 0, this.imgWidth, this.imgHeight,
+                  this.position.x, this.position.y, this.width, this.height
+                  );  
+}
+
+},{}],7:[function(require,module,exports){
+"use strict";
+
+const MS_PER_FRAME = 1000/8;
+
+/**
+ * @module exports the Enemy4 class
+ */
+module.exports = exports = Enemy4;
+
+
+/**
+ * @constructor Enemy4
+ * Creates a new enemy4 object
+ * @param {Postition} position object specifying an x and y
+ */
+function Enemy4(position, startTime, acceleration) {
+    this.startTime = startTime;
+    this.worldWidth = 850;
+    this.worldHeight = 800;
+    this.acceleration = acceleration; // initial direction. 1 = right, -1 = left
+    this.position = {
+        x: position.x,
+        y: position.y
+    };
+    this.velocity = {
+        x: 8 * this.acceleration,
+        y: 5
+    }
+    this.image = new Image();
+    this.image.src = 'assets/using/enemies/enemy_4.png';
+    this.remove = false;
+    this.frame = 0;
+    this.frameTimer = MS_PER_FRAME;
+    this.imgWidth = 24;
+    this.imgHeight = 18;
+    this.width = 2*this.imgWidth;
+    this.height = 2*this.imgHeight;
+}
+
+
+/**
+ * @function updates the enemy4 object
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ */
+Enemy4.prototype.update = function(time) {
+    this.frameTimer -= time;
+    if(this.frameTimer <= 0){
+        this.frameTimer = MS_PER_FRAME;
+        this.frame++;
+        if(this.frame >= 5){
+            this.frame = 0;
+        }
+    }
+
+  // Apply velocity
+  this.position.y += this.velocity.y;
+  this.position.x += this.velocity.x;
+
+  // Apply acceleration
+  this.velocity.x -= this.acceleration/10;
+
+  if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
+     this.position.y < -50 || this.position.y > this.worldHeight + 50){
+    this.remove = true;;
+  }
+}
+
+/**
+ * @function renders the enemy4 into the provided context
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ * {CanvasRenderingContext2D} ctx the context to render into
+ */
+Enemy4.prototype.render = function(time, ctx) {
+    ctx.drawImage(this.image,
+                  this.imgWidth*this.frame, 0, this.imgWidth, this.imgHeight,
+                  this.position.x, this.position.y, this.width, this.height
+                  );  
+}
+
+},{}],8:[function(require,module,exports){
+"use strict";
+
+const MS_PER_FRAME = 1000/16;
+const DIST_TO_SWITCH = 150;
+
+/**
+ * @module exports the Enemy5 class
+ */
+module.exports = exports = Enemy5;
+
+
+/**
+ * @constructor Enemy5
+ * Creates a new enemy5 object
+ * @param {Postition} position object specifying an x and y
+ */
+function Enemy5(position, startTime, direction) {
+    this.startTime = startTime;
+    this.worldWidth = 850;
+    this.worldHeight = 800;
+    this.direction = direction; // direction. 1 = right, -1 = left
+    this.position = {
+        x: position.x,
+        y: position.y
+    };
+    this.velocity = {
+        x: 0,
+        y: 5
+    }
+    this.image = new Image();
+    this.image.src = 'assets/using/enemies/enemy_5.png';
+    this.distanceTravelled = 0;
+    this.remove = false;
+    this.frame = 0;
+    this.frameTimer = MS_PER_FRAME;
+    this.imgWidth = 21;
+    this.imgHeight = 21;
+    this.width = 2*this.imgWidth;
+    this.height = 2*this.imgHeight;
+}
+
+
+/**
+ * @function updates the enemy5 object
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ */
+Enemy5.prototype.update = function(time) {
+    this.frameTimer -= time;
+    if(this.frameTimer <= 0){
+        this.frameTimer = MS_PER_FRAME;
+        this.frame++;
+        if(this.frame >= 8){
+            this.frame = 0;
+        }
+    }
+
+    this.distanceTravelled += 3;
+    if(this.distanceTravelled >= DIST_TO_SWITCH){
+        var temp = this.velocity.y;
+        this.velocity.y = this.velocity.x;
+        this.velocity.x = temp;
+        this.distanceTravelled = 0;
+    }
+
+    // Apply velocity
+    this.position.y += this.velocity.y;
+    this.position.x += this.velocity.x * this.direction;
+
+    if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
+       this.position.y < -50 || this.position.y > this.worldHeight + 50){
+        this.remove = true;;
+    }
+}
+
+/**
+ * @function renders the enemy5 into the provided context
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ * {CanvasRenderingContext2D} ctx the context to render into
+ */
+Enemy5.prototype.render = function(time, ctx) {
+    ctx.drawImage(this.image,
+                  this.imgWidth*this.frame, 0, this.imgWidth, this.imgHeight,
+                  this.position.x, this.position.y, this.width, this.height
+                  );  
+}
+
+},{}],9:[function(require,module,exports){
 "use strict";
 
 /**
@@ -546,7 +984,7 @@ Game.prototype.loop = function(newTime) {
   this.frontCtx.drawImage(this.backBuffer, 0, 0);
 }
 
-},{}],6:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 "use strict";
 
 /* Classes and Libraries */
@@ -559,8 +997,8 @@ const Shot4 = require('./shots/shot4');
 /* Constants */
 const PLAYER_SPEED = 7;
 const BULLET_SPEED = 14;
-const SHOT1_TIMER = 200;
-const SHOT3_TIMER = 600;
+const SHOT12_TIMER = 200;
+const SHOT34_TIMER = 600;
 const SHIELD_TIMER = 100;
 
 /**
@@ -574,13 +1012,10 @@ module.exports = exports = Player;
  * Creates a player
  * @param {BulletPool} bullets the bullet pool
  */
-function Player(bullets, missiles) {
-  this.missiles = missiles;
-  this.missileCount = 4;
-  this.bullets = bullets;
+function Player() {
   this.angle = 0;
   this.angle_offset = 0;
-  this.position = {x: 200, y: 200};
+  this.position = {x: 405, y: 500};
   this.velocity = {x: 0, y: 0};
   this.img = new Image();
   this.img.src = 'assets/using/ship/ship.png';
@@ -589,37 +1024,69 @@ function Player(bullets, missiles) {
   this.shield = new Image();
   this.shield.src = 'assets/using/ship/shield.png';
   this.shots = [];
-  this.shot1Timer = SHOT1_TIMER;
-  this.shot3Timer = SHOT3_TIMER;
+  this.shot12Timer = SHOT12_TIMER;
+  this.shot34Timer = SHOT34_TIMER;
   this.shot1Level = 0;
-  this.shot3Level = 0;
-  this.shot4Level = 0;
+  this.shot2Level = -1;
+  this.shot3Level = -1;
+  this.shot4Level = -1;
   this.shielding = false;
   this.shieldTimer = SHIELD_TIMER;
+  this.shields = 100;
+  this.lives = 3;
 }
 
-Player.prototype.updateShot1 = function(){
-  this.shielding = true;
-
-  if(this.shot1Level < 3){
-    this.shot1Level++;
+Player.prototype.debug = function(key){
+  switch(key){
+    case '1': // Base gun
+      this.pickupPowerup(1);
+      break;
+    case '2': // Green angled shots
+      this.pickupPowerup(2);
+      break;
+    case '3': // Missiles
+      this.pickupPowerup(3);
+      break;
+    case '4': // Horizontal shots
+      this.pickupPowerup(4);
+      break;
+    case 'o': // shield
+      this.shielding = true;
+      break;
+    case 'r': // reset shot levels
+      this.shot1Level = 0;
+      this.shot2Level = -1;
+      this.shot3Level = -1;
+      this.shot4Level = -1;
+      break;   
   }
-  else this.shot1Level = 0;
-
-  if(this.shot4Level < 2){
-    this.shot4Level++;
-  }
-  else this.shot4Level = 0;  
-
-  if(this.shot3Level == 0) this.shot3Level = 1;
-  else this.shot3Level = 0;
 }
 
 Player.prototype.struck = function(damage){
-  if(this.shields > 0)
+  if(this.shields > 0){
     this.shielding = true;
     this.shields -= damage;
+  }
+  else{
+    // Destroy player
+  }
+}
 
+Player.prototype.pickupPowerup = function(powerup){
+  switch(powerup){
+    case 1: // Base gun
+      if(this.shot1Level < 3) this.shot1Level++;
+      break;
+    case 2: // Green angled shots
+      if(this.shot2Level < 0) this.shot2Level++;
+      break;
+    case 3: // Missiles
+      if(this.shot3Level < 1) this.shot3Level++;
+      break;
+    case 4: // Horizontal shots
+      if(this.shot4Level < 2) this.shot4Level++;
+      break;
+  }
 }
 
 /**
@@ -630,7 +1097,6 @@ Player.prototype.struck = function(damage){
  * boolean properties: up, left, right, down
  */
 Player.prototype.update = function(elapsedTime, input) {
-
   if(this.shielding){
     this.shieldTimer -= elapsedTime;
     if(this.shieldTimer <= 0){
@@ -657,29 +1123,37 @@ Player.prototype.update = function(elapsedTime, input) {
   this.position.y += this.velocity.y;
 
   // don't let the player move off-screen
-  if(this.position.x < 44) this.position.x = 44;
-  if(this.position.x > 720) this.position.x = 720;
+  if(this.position.x < 10) this.position.x = 10;
+  if(this.position.x > 750) this.position.x = 750;
   if(this.position.y > 750) this.position.y = 750;
   if(this.position.y < 36) this.position.y = 36;
 
-  this.shot1Timer -= elapsedTime;
-  this.shot3Timer -= elapsedTime;
+  this.shot12Timer -= elapsedTime;
+  this.shot34Timer -= elapsedTime;
 
+
+  // add necessary shots
   if(input.firing){
-    if(this.shot1Timer <= 0){
+    if(this.shot12Timer <= 0){
       this.shots.push(new Shot1(this.position, this.shot1Level));
-      this.shots.push(new Shot2(this.position, -1));
-      this.shots.push(new Shot2(this.position, 1));
-      this.shot1Timer = SHOT1_TIMER;
+      if(this.shot2Level >= 0){
+        this.shots.push(new Shot2(this.position, -1));
+        this.shots.push(new Shot2(this.position, 1));
+      }
+      this.shot12Timer = SHOT12_TIMER;
     }
-    if(this.shot3Timer <= 0){
+    if(this.shot34Timer <= 0){
       var posx = this.position.x;
       var posy = this.position.y;
-      this.shots.push(new Shot3({x: posx - 27, y : posy}, this.shot3Level));
-      this.shots.push(new Shot3({x: posx + 33, y: posy}, this.shot3Level));
-      this.shots.push(new Shot4(this.position, -1, this.shot4Level));
-      this.shots.push(new Shot4(this.position, 1, this.shot4Level));
-      this.shot3Timer = SHOT3_TIMER;      
+      if(this.shot3Level >= 0){
+        this.shots.push(new Shot3({x: posx - 27, y : posy}, this.shot3Level));
+        this.shots.push(new Shot3({x: posx + 33, y: posy}, this.shot3Level));
+      }
+      if(this.shot4Level >= 0){
+        this.shots.push(new Shot4(this.position, -1, this.shot4Level));
+        this.shots.push(new Shot4(this.position, 1, this.shot4Level));
+      }
+      this.shot34Timer = SHOT34_TIMER;
     }
   }
 
@@ -706,44 +1180,28 @@ Player.prototype.render = function(elapsedTime, ctx) {
   var offset = this.angle * 21;
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
+
+  // Draw ship
   ctx.drawImage(this.img, 42+offset, 0, 21, 27, 0, 0, 46, 54);
-  ctx.drawImage(this.guns, 0 ,0, 41, 13, -18, 15, 82, 26);
+
+  // Draw missle launchers
+  if(this.shot3Level >= 0){
+    ctx.drawImage(this.guns, 0 ,0, 41, 13, -18, 15, 82, 26);
+  }
+
+  // Draw shield
   if(this.shielding){
     ctx.drawImage(this.shield, 0 ,0, 556, 556, -27, -20, 100, 100);  
   }
+
   ctx.restore();
 
+  // Render shots
   for(var i = 0; i < this.shots.length; i++){
     this.shots[i].render(elapsedTime, ctx);
   }
 }
-
-/**
- * @function fireBullet
- * Fires a bullet
- * @param {Vector} direction
- */
-Player.prototype.fireBullet = function(direction) {
-  var position = Vector.add(this.position, {x:30, y:30});
-  var velocity = Vector.scale(Vector.normalize(direction), BULLET_SPEED);
-  this.bullets.add(position, velocity);
-}
-
-/**
- * @function fireMissile
- * Fires a missile, if the player still has missiles
- * to fire.
- */
-Player.prototype.fireMissile = function() {
-  if(this.missileCount > 0){
-    var position = Vector.add(this.position, {x:0, y:30})
-    var missile = new Missile(position);
-    this.missiles.push(missile);
-    this.missileCount--;
-  }
-}
-
-},{"./shots/shot1":7,"./shots/shot2":8,"./shots/shot3":9,"./shots/shot4":10,"./vector":11}],7:[function(require,module,exports){
+},{"./shots/shot1":11,"./shots/shot2":12,"./shots/shot3":13,"./shots/shot4":14,"./vector":15}],11:[function(require,module,exports){
 "use strict";
 
 const SPEED = 8;
@@ -798,7 +1256,7 @@ Shot1.prototype.render = function(time, ctx) {
     ctx.translate(-this.position.x, -this.position.y);
 }
 
-},{}],8:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 "use strict";
 
 const SPEED = 8;
@@ -854,7 +1312,7 @@ Shot2.prototype.render = function(time, ctx) {
     ctx.translate(-this.position.x, -this.position.y);
 }
 
-},{}],9:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 "use strict";
 
 const SPEED = 5;
@@ -910,7 +1368,7 @@ Shot3.prototype.render = function(time, ctx) {
     
 }
 
-},{}],10:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 "use strict";
 
 const SPEED = 8;
@@ -967,7 +1425,7 @@ Shot4.prototype.render = function(time, ctx) {
 
 }
 
-},{}],11:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 "use strict";
 
 /**

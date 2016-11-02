@@ -1,6 +1,6 @@
 "use strict";
 
-const MOVEMENT = 4;
+const MOVEMENT = 3;
 const MS_PER_FRAME = 1000/50;
 
 /**
@@ -23,14 +23,14 @@ function Enemy2(position, startTime) {
     y: position.y
   };
   this.image = new Image();
-  this.image.src = 'assets/using/enemies/enemy_2.png';
+  this.image.src = 'assets/using/enemies/enemy_22.png';
   this.remove = false;
   this.frame = 0;
   this.frameTimer = MS_PER_FRAME;
   this.imgWidth = 24;
   this.imgHeight = 28;
-  this.width = 2*this.imgWidth;
-  this.height = 2*this.imgHeight;
+  this.width = 2.25*this.imgWidth;
+  this.height = 2.25*this.imgHeight;
   this.state = 'default';
 }
 

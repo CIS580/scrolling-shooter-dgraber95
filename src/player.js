@@ -52,16 +52,16 @@ function Player() {
 Player.prototype.debug = function(key){
   switch(key){
     case '1': // Base gun
-      pickupPowerup(1);
+      this.pickupPowerup(1);
       break;
     case '2': // Green angled shots
-      pickupPowerup(2);
+      this.pickupPowerup(2);
       break;
     case '3': // Missiles
-      pickupPowerup(3);
+      this.pickupPowerup(3);
       break;
     case '4': // Horizontal shots
-      pickupPowerup(4);
+      this.pickupPowerup(4);
       break;
     case 'o': // shield
       this.shielding = true;
@@ -73,21 +73,6 @@ Player.prototype.debug = function(key){
       this.shot4Level = -1;
       break;   
   }
-
-  this.shielding = true;
-
-  if(this.shot1Level < 3){
-    this.shot1Level++;
-  }
-  else this.shot1Level = 0;
-
-  if(this.shot4Level < 2){
-    this.shot4Level++;
-  }
-  else this.shot4Level = 0;  
-
-  if(this.shot3Level == 0) this.shot3Level = 1;
-  else this.shot3Level = 0;
 }
 
 Player.prototype.struck = function(damage){
@@ -103,16 +88,16 @@ Player.prototype.struck = function(damage){
 Player.prototype.pickupPowerup = function(powerup){
   switch(powerup){
     case 1: // Base gun
-      this.shot1Level++;
+      if(this.shot1Level < 3) this.shot1Level++;
       break;
     case 2: // Green angled shots
-      this.shot2Level++;
+      if(this.shot2Level < 0) this.shot2Level++;
       break;
     case 3: // Missiles
-      this.shot3Level++;
+      if(this.shot3Level < 1) this.shot3Level++;
       break;
     case 4: // Horizontal shots
-      this.shot4Level++;
+      if(this.shot4Level < 2) this.shot4Level++;
       break;
   }
 }
@@ -151,8 +136,8 @@ Player.prototype.update = function(elapsedTime, input) {
   this.position.y += this.velocity.y;
 
   // don't let the player move off-screen
-  if(this.position.x < 44) this.position.x = 44;
-  if(this.position.x > 720) this.position.x = 720;
+  if(this.position.x < 10) this.position.x = 10;
+  if(this.position.x > 750) this.position.x = 750;
   if(this.position.y > 750) this.position.y = 750;
   if(this.position.y < 36) this.position.y = 36;
 
