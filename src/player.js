@@ -130,9 +130,10 @@ Player.prototype.update = function(elapsedTime, input) {
     if(input.down) this.velocity.y += PLAYER_SPEED;
   }
   else if(this.state == 'finished'){
-    this.velocity.y -= PLAYER_SPEED * 4;
+    this.velocity.x = 0;
+    this.velocity.y = -PLAYER_SPEED;
     if(this.position.y < -50){
-      this.state == 'offscreen';
+      this.state = 'offscreen';
     }
   }
 
@@ -149,11 +150,10 @@ Player.prototype.update = function(elapsedTime, input) {
   if(this.position.x < 10) this.position.x = 10;
   if(this.position.x > 750) this.position.x = 750;
   if(this.position.y > 750) this.position.y = 750;
-  if(this.position.y < 36 && this.state != 'finished') this.position.y = 36;
+  if(this.position.y < 36 && (this.state == 'running' || this.state == 'ready')) this.position.y = 36;
 
   this.shot12Timer -= elapsedTime;
   this.shot34Timer -= elapsedTime;
-
 
   // add necessary shots
   if(input.firing && this.state == 'running'){
@@ -214,7 +214,7 @@ Player.prototype.render = function(elapsedTime, ctx) {
 
   // Draw shield
   if(this.shielding){
-    ctx.drawImage(this.shield, 0 ,0, 556, 556, -27, -20, 100, 100);  
+    ctx.drawImage(this.shield, 0 ,0, 556, 556, -11, -5, 70, 70);  
   }
 
   ctx.restore();

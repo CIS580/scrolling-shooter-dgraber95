@@ -50,19 +50,19 @@ clouds.src = 'assets/Backgrounds/clouds.png';
 var platforms = new Image();
 platforms.src = 'assets/Backgrounds/platforms.png';
 var waitingEnemies = [];
-buildLevel();
 var enemies = [];
 var waitingPowerups = [];
 var powerups = [];
 var enemyShots = [];
-var enemyTimer = 0;
+var enemyTimer = 300;
 var pKey = false;
 var state = 'ready';
-var countDown = COUNTDOWN;  // Countdown for ready screen
+var countDown = READY_TIMER;  // Countdown for ready screen
 var enemiesDestroyed = 0;
 var levelDestroyed = 0;
 var score = 0;
 var levelScore = 0;
+buildLevel();
 
 
 /**
@@ -191,9 +191,9 @@ window.onkeyup = function(event) {
  * Pause game if window loses focus
  */
 window.onblur = function(){
-  if(state == 'running' || state == 'ready'){
-    state = 'paused';
-  }
+  // if(state == 'running' || state == 'ready'){
+  //   state = 'paused';
+  // }
 }
 
 /**
@@ -225,7 +225,7 @@ function update(elapsedTime) {
       // Update countdown
       countDown -= elapsedTime;
       if(countDown <= 0){
-        countDown = COUNTDOWN;
+        countDown = READY_TIMER;
         state = 'running';
         player.state = 'running';
       }
@@ -250,9 +250,9 @@ function update(elapsedTime) {
       }
 
       // Move the three backgrounds
-      levelTop-=1;
-      cloudTop -= 2;
-      platTop -= 3;
+      // levelTop-=1;
+      // cloudTop -= 2;
+      // platTop -= 3;
       if(levelTop <= 0) levelTop = levelSize.height;
       if(cloudTop <= 0) cloudTop = levelSize.height;
       if(platTop <= 0) platTop = levelSize.height;
@@ -263,7 +263,7 @@ function update(elapsedTime) {
       // Update enemies
       var markedForRemoval = [];
       enemies.forEach(function(enemy, i){
-        enemy.update(elapsedTime);
+        enemy.update(elapsedTime, player.position);
         if(enemy.remove)
           markedForRemoval.unshift(i);
       });
@@ -285,6 +285,7 @@ function update(elapsedTime) {
       });
 
       // Check for shot on player collisions
+      check_player_hit();
       // Check for enemy on player collisions
       // Check for shot on enemy collisions
       // Check for player on powerup collisions
@@ -306,10 +307,23 @@ function update(elapsedTime) {
       break;
     
     case 'levelDone':
+      // update the player
+      player.update(elapsedTime, input);
       if(player.state == 'offscreen'){
         if(curLevel < 2) state = 'summary';
           else state = 'gameDone';
       }
+      // Update enemy shots
+      var markedForRemoval = [];
+      enemyShots.forEach(function(shot, i){
+        shot.update(elapsedTime);
+        if(shot.remove)
+          markedForRemoval.unshift(i);
+      });
+      // Remove shots that have hit player or go off screen
+      markedForRemoval.forEach(function(index){
+        enemyShots.splice(index, 1);
+      });      
       break;
     case 'gameDone':
     case 'paused':
@@ -318,6 +332,26 @@ function update(elapsedTime) {
     case 'summary':
   }
 }
+
+
+function check_player_hit(){
+  for(var i = 0; i < enemyShots.length; i++){
+    var playerX = player.position.x + 23;
+    var playerY = player.position.y + 27;
+    var shotX = enemyShots[i].position.x + 5;
+    var shotY = enemyShots[i].position.y + 5;
+
+    if(!(shotX + 5 < playerX - 25||
+       shotX - 5 > playerX + 25 ||
+       shotY + 5 < playerY - 25 ||
+       shotY - 5 > playerY + 25))
+    {
+        enemyShots.splice(i, 1);
+        player.struck(2);
+    }
+  }
+}
+
 
 function restart(){
 
@@ -333,6 +367,10 @@ function restart(){
   * @param {CanvasRenderingContext2D} ctx the context to render to
   */
 function render(elapsedTime, ctx) {
+
+  ctx.fillStyle = "white"
+  ctx.fillRect(0, 0, 1024, screenSize.height);
+
 {/********* Draw far background *********/
   if(levelTop < levelSize.height - screenSize.height){  
     ctx.drawImage(levels[curLevel], 
@@ -395,11 +433,9 @@ function render(elapsedTime, ctx) {
   }
 }/***************************************/
 
-  ctx.fillStyle = "white"
-  ctx.fillRect(0, 0, 1024, screenSize.height);
-
   ctx.font = "30px Arial";
-  ctx.strokeText(enemyTimer, 820, 600);
+  ctx.strokeText(enemyTimer, 840, 600);
+  ctx.strokeText(player.shields, 840, 550);
   ctx.stroke();
 
   // Render enemies
@@ -428,8 +464,8 @@ function render(elapsedTime, ctx) {
       ctx.fillStyle = 'white';
       ctx.strokeStyle = 'black';
       ctx.textAlign = "center";
-      ctx.fillText(Math.ceil(countDown/(COUNTDOWN/3)),  levelSize.width/2, canvas.height/2); 
-      ctx.strokeText(Math.ceil(countDown/(COUNTDOWN/3)),  levelSize.width/2, canvas.height/2);
+      ctx.fillText(Math.ceil(countDown/(READY_TIMER/3)),  levelSize.width/2, canvas.height/2); 
+      ctx.strokeText(Math.ceil(countDown/(READY_TIMER/3)),  levelSize.width/2, canvas.height/2);
       break;
     case 'running':
       break;
@@ -547,16 +583,20 @@ function buildLevel(){
   // Enemy 1
   for(var k = 0; k < 4; k++){
     for(var i = 0; i < 5; i++){
-      for(var j =0; j < 5; j++){
+      for(var j =0; j < 3; j++){
         waitingEnemies.push(new Enemy1({x: 200 + 100*i, y: -50}, 300 + 100*i + 10*j + 1000*k, curLevel, enemyShots));
       }
     }
   }
 
   // Enemy 2
+    // waitingEnemies.push(new Enemy2({x: 650, y: 100}, 0, curLevel, enemyShots))
+    // waitingEnemies.push(new Enemy2({x: 300, y: 300}, 0, curLevel, enemyShots))
+    // waitingEnemies.push(new Enemy2({x: 500, y: 550}, 0, curLevel, enemyShots))
+  
   var multiplier = 1440;
   for(var i = 0; i < 3; i++){
-    waitingEnemies.push(new Enemy2({x: 650, y: -50}, multiplier*i + 115, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 650, y: -100}, multiplier*i + 115, curLevel, enemyShots))
     waitingEnemies.push(new Enemy2({x: 480, y: -50}, multiplier*i + 170, curLevel, enemyShots))
     waitingEnemies.push(new Enemy2({x: 100, y: -50}, multiplier*i + 200, curLevel, enemyShots))
     waitingEnemies.push(new Enemy2({x: 400, y: -50}, multiplier*i + 390, curLevel, enemyShots))
@@ -596,26 +636,26 @@ function buildLevel(){
 
 
   // Enemy 4
-  for(var i = 0; i < 8; i++){
-    waitingEnemies.push(new Enemy4({x: -50, y: -50}, 600 +  10*i, 1, curLevel, enemyShots))
+  for(var i = 0; i < 5; i++){
+    waitingEnemies.push(new Enemy4({x: -50, y: -50}, 600 +  20*i, 1, curLevel, enemyShots))
   }
   for(var j = 0; j < 4; j++){
-    for(var i = 0; i < 8; i++){
-      waitingEnemies.push(new Enemy4({x: -50, y: -50}, 1000 + 1000*j +  10*i, 1, curLevel, enemyShots))
+    for(var i = 0; i < 5; i++){
+      waitingEnemies.push(new Enemy4({x: -50, y: -50}, 1000 + 1000*j +  20*i, 1, curLevel, enemyShots))
     }
   }
   for(var j = 0; j < 3; j++){
-    for(var i = 0; i < 8; i++){
-      waitingEnemies.push(new Enemy4({x: 860, y: -50}, 1100 +  1100*j +  10*i, -1, curLevel, enemyShots))
+    for(var i = 0; i < 5; i++){
+      waitingEnemies.push(new Enemy4({x: 860, y: -50}, 1100 +  1100*j +  20*i, -1, curLevel, enemyShots))
     }  
   }
 
 
   // Enemy 5
-  for(var i = 0; i < 6; i++){
+  for(var i = 0; i < 5; i++){
     waitingEnemies.push(new Enemy5({x: 10, y: -50}, 1100 + 30*i, 1, curLevel, enemyShots))
   }
-  for(var i = 0; i < 6; i++){
+  for(var i = 0; i < 5; i++){
     waitingEnemies.push(new Enemy5({x: 800, y: -50}, 2800 + 30*i, -1, curLevel, enemyShots))
   }  
 

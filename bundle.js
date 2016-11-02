@@ -1,6 +1,8 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 "use strict";
 
+const READY_TIMER = 2400;
+
 /* Classes and Libraries */
 const Game = require('./game');
 const Vector = require('./vector');
@@ -12,11 +14,12 @@ const Enemy2 = require('./enemies/enemy2');
 const Enemy3 = require('./enemies/enemy3');
 const Enemy4 = require('./enemies/enemy4');
 const Enemy5 = require('./enemies/enemy5');
+const Powerup = require('./powerup');
 
 
 /* Global variables */
 var canvas = document.getElementById('screen');
-var screenSize = {width: canvas.width, height: canvas.height}
+var screenSize = {width: canvas.width, height: canvas.height};
 var game = new Game(canvas, update, render);
 var input = {
   up: false,
@@ -36,28 +39,31 @@ var curLevel = 0;
 levels.push(new Image());
 //levels.push(new Image());
 //levels.push(new Image());
-
 levels[0].src = 'assets/Backgrounds/level1.png';
 //levels[1].src = 'assets/Backgrounds/level2.png';
 //levels[2].src = 'assets/Backgrounds/level3.png';
-
 var levelSize = {width: 810, height: 4320};
 var levelTop = levelSize.height - screenSize.height;
 var cloudTop = levelSize.height - screenSize.height;
 var platTop = levelSize.height - screenSize.height;
-
 var clouds = new Image();
 clouds.src = 'assets/Backgrounds/clouds.png';
-
 var platforms = new Image();
 platforms.src = 'assets/Backgrounds/platforms.png';
-
 var waitingEnemies = [];
-buildLevel();
-
-
 var enemies = [];
-var enemyTimer = 0;
+var waitingPowerups = [];
+var powerups = [];
+var enemyShots = [];
+var enemyTimer = 300;
+var pKey = false;
+var state = 'ready';
+var countDown = READY_TIMER;  // Countdown for ready screen
+var enemiesDestroyed = 0;
+var levelDestroyed = 0;
+var score = 0;
+var levelScore = 0;
+buildLevel();
 
 
 /**
@@ -65,35 +71,74 @@ var enemyTimer = 0;
  * Handles keydown events
  */
 window.onkeydown = function(event) {
+  if(state == 'summary'){
+    curLevel++;
+    // start next level
+    state == 'ready';
+  }
+  else if(state == 'dead'){
+    // restart current level
+    state == 'ready';
+  }
+
   switch(event.key) {
     case "ArrowUp":
     case "w":
-      input.up = true;
-      input.down = false;
       event.preventDefault();
+      if(state == 'running' || state == 'ready'){
+        input.up = true;
+        input.down = false;
+      }
       break;
     case "ArrowDown":
     case "s":
-      input.down = true;
-      input.up = false;
       event.preventDefault();
+      if(state == 'running' || state == 'ready'){
+        input.down = true;
+        input.up = false;
+      }    
       break;
     case "ArrowLeft":
     case "a":
-      input.left = true;
-      input.right = false;
       event.preventDefault();
+      if(state == 'running' || state == 'ready'){
+        input.left = true;
+        input.right = false;
+      }    
       break;
     case "ArrowRight":
     case "d":
-      input.right = true;
-      input.left = false;
       event.preventDefault();
+      if(state == 'running' || state == 'ready'){
+        input.right = true;
+        input.left = false;
+      }    
       break;
     case " ":
-      input.firing = true;
       event.preventDefault();
+      if(state == 'running'){
+        input.firing = true;
+      }
       break;
+    case "p":
+      event.preventDefault();
+      if(!pKey){
+        pKey = true;
+        if(state == 'running'){
+          state = 'paused';
+        }
+        else if(state == 'paused'){
+          state = 'running';
+          input = {
+          up: false,
+          down: false,
+          left: false,
+          right: false,
+          firing: false
+          }          
+        }
+      }
+      break;      
     default:
       if(debugInput){
         debugInput = false;
@@ -132,11 +177,24 @@ window.onkeyup = function(event) {
     case " ":
       input.firing = false;
       event.preventDefault();
-      break;      
+      break;
+    case "p":
+      event.preventDefault();
+      pKey = false;
+      break;
     default:
       debugInput = true;
       break;
   }
+}
+
+/**
+ * Pause game if window loses focus
+ */
+window.onblur = function(){
+  // if(state == 'running' || state == 'ready'){
+  //   state = 'paused';
+  // }
 }
 
 /**
@@ -160,36 +218,147 @@ masterLoop(performance.now());
  */
 function update(elapsedTime) {
 
-  enemyTimer++;
-  console.log(enemyTimer);
+  switch(state){
+    case 'ready':
+      // update the player
+      player.update(elapsedTime, input);
 
-  if(waitingEnemies.length && enemyTimer >= waitingEnemies[0].startTime){
-    enemies.push(waitingEnemies[0]);
-    waitingEnemies.splice(0, 1);
+      // Update countdown
+      countDown -= elapsedTime;
+      if(countDown <= 0){
+        countDown = READY_TIMER;
+        state = 'running';
+        player.state = 'running';
+      }
+      break;
+
+    case 'running':
+      enemyTimer++;
+
+      // Pop any waiting enemies whose start times have passed
+      while(waitingEnemies.length){
+        if(waitingEnemies[0].startTime <= enemyTimer){
+          enemies.push(waitingEnemies[0]);
+          waitingEnemies.splice(0, 1);
+        }
+        else break;
+      }
+
+      // Pop first waiting powerup off the waiting list and make active
+      if(waitingPowerups.length && enemyTimer >= waitingPowerups[0].startTime){
+        powerups.push(waitingPowerups[0]);
+        waitingPowerups.splice(0, 1);
+      }
+
+      // Move the three backgrounds
+      // levelTop-=1;
+      // cloudTop -= 2;
+      // platTop -= 3;
+      if(levelTop <= 0) levelTop = levelSize.height;
+      if(cloudTop <= 0) cloudTop = levelSize.height;
+      if(platTop <= 0) platTop = levelSize.height;
+
+      // update the player
+      player.update(elapsedTime, input);
+
+      // Update enemies
+      var markedForRemoval = [];
+      enemies.forEach(function(enemy, i){
+        enemy.update(elapsedTime, player.position);
+        if(enemy.remove)
+          markedForRemoval.unshift(i);
+      });
+      // Remove enemies that are off-screen or have been destroyed
+      markedForRemoval.forEach(function(index){
+        enemies.splice(index, 1);
+      });
+
+      // Update enemy shots
+      var markedForRemoval = [];
+      enemyShots.forEach(function(shot, i){
+        shot.update(elapsedTime);
+        if(shot.remove)
+          markedForRemoval.unshift(i);
+      });
+      // Remove shots that have hit player or go off screen
+      markedForRemoval.forEach(function(index){
+        enemyShots.splice(index, 1);
+      });
+
+      // Check for shot on player collisions
+      check_player_hit();
+      // Check for enemy on player collisions
+      // Check for shot on enemy collisions
+      // Check for player on powerup collisions
+
+      // If player is dead, check lives count and act accordingly
+      if(player.state == 'dead'){
+        if(player.lives > 0){
+          state = 'dead';
+        }
+        else{
+          state = 'gameover';
+        }
+      }
+
+      if(waitingEnemies.length == 0 && enemies.length == 0){
+        player.state = 'finished';
+        state = 'levelDone';
+      }
+      break;
+    
+    case 'levelDone':
+      // update the player
+      player.update(elapsedTime, input);
+      if(player.state == 'offscreen'){
+        if(curLevel < 2) state = 'summary';
+          else state = 'gameDone';
+      }
+      // Update enemy shots
+      var markedForRemoval = [];
+      enemyShots.forEach(function(shot, i){
+        shot.update(elapsedTime);
+        if(shot.remove)
+          markedForRemoval.unshift(i);
+      });
+      // Remove shots that have hit player or go off screen
+      markedForRemoval.forEach(function(index){
+        enemyShots.splice(index, 1);
+      });      
+      break;
+    case 'gameDone':
+    case 'paused':
+    case 'dead':
+    case 'gameover':
+    case 'summary':
   }
-
-  levelTop-=1;
-  cloudTop -= 2;
-  platTop -= 3;
-  if(levelTop <= 0) levelTop = levelSize.height;
-  if(cloudTop <= 0) cloudTop = levelSize.height;
-  if(platTop <= 0) platTop = levelSize.height;
-
-  // update the player
-  player.update(elapsedTime, input);
-
-  // Update enemies
-  var markedForRemoval = [];
-  enemies.forEach(function(enemy, i){
-    enemy.update(elapsedTime);
-    if(enemy.remove)
-      markedForRemoval.unshift(i);
-  });
-  // Remove enemies that are off-screen or have been destroyed
-  markedForRemoval.forEach(function(index){
-    enemies.splice(index, 1);
-  });
 }
+
+
+function check_player_hit(){
+  for(var i = 0; i < enemyShots.length; i++){
+    var playerX = player.position.x + 23;
+    var playerY = player.position.y + 27;
+    var shotX = enemyShots[i].position.x + 5;
+    var shotY = enemyShots[i].position.y + 5;
+
+    if(!(shotX + 5 < playerX - 25||
+       shotX - 5 > playerX + 25 ||
+       shotY + 5 < playerY - 25 ||
+       shotY - 5 > playerY + 25))
+    {
+        enemyShots.splice(i, 1);
+        player.struck(2);
+    }
+  }
+}
+
+
+function restart(){
+
+}
+
+
 
 /**
   * @function render
@@ -200,16 +369,10 @@ function update(elapsedTime) {
   */
 function render(elapsedTime, ctx) {
 
-
-
-
   ctx.fillStyle = "white"
   ctx.fillRect(0, 0, 1024, screenSize.height);
 
-  ctx.font = "30px Arial";
-  ctx.strokeText(enemyTimer, 820, 600);
-  ctx.stroke();
-
+{/********* Draw far background *********/
   if(levelTop < levelSize.height - screenSize.height){  
     ctx.drawImage(levels[curLevel], 
                   0, levelTop, levelSize.width, screenSize.height,
@@ -227,7 +390,9 @@ function render(elapsedTime, ctx) {
                   0, (levelSize.height - levelTop), levelSize.width, screenSize.height 
                   );
   }
+}/***************************************/
 
+{/************* Draw clouds *************/
   ctx.globalAlpha = 0.7;
   if(cloudTop < levelSize.height - screenSize.height){  
     ctx.drawImage(clouds, 
@@ -247,7 +412,9 @@ function render(elapsedTime, ctx) {
                   );
   }
   ctx.globalAlpha = 1;
+}/***************************************/
 
+{/************ Draw platforms ***********/
   if(platTop < levelSize.height - screenSize.height){  
     ctx.drawImage(platforms, 
                   0, platTop, levelSize.width, screenSize.height,
@@ -265,96 +432,235 @@ function render(elapsedTime, ctx) {
                   0, (levelSize.height - platTop), levelSize.width, screenSize.height 
                   );
   }
+}/***************************************/
 
+  ctx.font = "30px Arial";
+  ctx.strokeText(enemyTimer, 840, 600);
+  ctx.strokeText(player.shields, 840, 550);
+  ctx.stroke();
+
+  // Render enemies
   for(var i = 0; i < enemies.length; i++){
     enemies[i].render(elapsedTime, ctx);
   }
 
+  // Render enemy shots
+  for(var i = 0; i < enemyShots.length; i++){
+    enemyShots[i].render(elapsedTime, ctx);
+  }
+
   // Render the player
-  player.render(elapsedTime, ctx);  
+  player.render(elapsedTime, ctx);
 
   // Render the GUI 
   renderGUI(elapsedTime, ctx);
+
+  switch(state){
+    case 'ready':
+      ctx.globalAlpha = 0.2;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, levelSize.width, canvas.height);
+      ctx.globalAlpha = 1;
+      ctx.font = "75px impact";
+      ctx.fillStyle = 'white';
+      ctx.strokeStyle = 'black';
+      ctx.textAlign = "center";
+      ctx.fillText(Math.ceil(countDown/(READY_TIMER/3)),  levelSize.width/2, canvas.height/2); 
+      ctx.strokeText(Math.ceil(countDown/(READY_TIMER/3)),  levelSize.width/2, canvas.height/2);
+      break;
+    case 'running':
+      break;
+    case 'paused':
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, levelSize.width, canvas.height);
+      ctx.globalAlpha = 1;
+      ctx.textAlign = "center";
+      ctx.fillStyle = 'white';
+      ctx.strokeStyle = 'black';
+      ctx.font = "50px impact";
+      ctx.fillText("PAUSED", levelSize.width/2, canvas.height/2); 
+      ctx.strokeText("PAUSED", levelSize.width/2, canvas.height/2); 
+      break;
+    case 'dead':
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, levelSize.width, canvas.height);
+      ctx.globalAlpha = 1;
+      ctx.font = "60px Georgia, serif";
+      ctx.fillStyle = "red";
+      ctx.strokeStyle = "black";
+      ctx.textAlign = "center";
+      ctx.fillText("YOU DIED", levelSize.width/2, canvas.height/2); 
+      ctx.strokeText("YOU DIED", levelSize.width/2, canvas.height/2); 
+      ctx.font = "35px impact";
+      ctx.fillStyle = "black";
+      ctx.fillText("Lives remaining: " + score, levelSize.width/2, canvas.height/2 + 40);
+      ctx.fillText("Press any key to continue", levelSize.width/2, canvas.height/2 + 80);
+      break;
+    case 'gameover':
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, levelSize.width, canvas.height);
+      ctx.globalAlpha = 1;
+      ctx.font = "60px Georgia, serif";
+      ctx.fillStyle = "red";
+      ctx.strokeStyle = "black";
+      ctx.textAlign = "center";
+      ctx.fillText("YOU DIED", levelSize.width/2, canvas.height/2 - 75); 
+      ctx.strokeText("YOU DIED", levelSize.width/2, canvas.height/2 - 75);       
+      ctx.font = "40px impact";
+      ctx.fillText("GAME OVER", levelSize.width/2, canvas.height/2); 
+      ctx.strokeText("GAME OVER", levelSize.width/2, canvas.height/2); 
+      ctx.font = "35px impact";
+      ctx.fillStyle = "black";
+      ctx.fillText("Final Score: " + score, levelSize.width/2, canvas.height/2 + 40);
+      ctx.fillText("Total Enemies Destroyed: " + enemiesDestroyed, levelSize.width/2, canvas.height/2 + 80);
+      break;
+    case 'gameDone':
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, levelSize.width, canvas.height);
+      ctx.globalAlpha = 1;
+      ctx.font = "60px impact";
+      ctx.fillStyle = "red";
+      ctx.strokeStyle = 'black';
+      ctx.textAlign = "center";
+      ctx.fillText("GAME OVER", levelSize.width/2, canvas.height/2); 
+      ctx.strokeText("GAME OVER", levelSize.width/2, canvas.height/2); 
+      ctx.font = "35px impact";
+      ctx.fillStyle = "black";
+      ctx.fillText("Final Score: " + score, levelSize.width/2, canvas.height/2 + 40);
+      ctx.fillText("Total Enemies Destroyed: " + enemiesDestroyed, levelSize.width/2, canvas.height/2 + 80);
+      break;      
+    case 'summary':
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, levelSize.width, canvas.height);
+      ctx.globalAlpha = 1;
+      ctx.font = "60px impact";
+      ctx.fillStyle = "white";
+      ctx.strokeStyle = 'black';
+      ctx.textAlign = "center";
+      ctx.fillText("LEVEL COMPLETE!", levelSize.width/2, canvas.height/2); 
+      ctx.strokeText("LEVEL COMPLETE!", levelSize.width/2, canvas.height/2); 
+      ctx.font = "35px impact";
+      ctx.fillStyle = "black";
+      ctx.fillText("Level Score: " + levelScore, levelSize.width/2, canvas.height/2 + 40);
+      ctx.fillText("Enemies Destroyed: " + enemiesDestroyed, levelSize.width/2, canvas.height/2 + 80);
+      break;
+  }
 }
 
-function buildLevel(){
 
+function buildLevel(){
+  // Drop powerups
+  waitingPowerups = [];
+  switch(curLevel){
+    case 0:
+      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 1));
+      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4));
+      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 3));
+      break;
+
+    case 1:
+      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 4));
+      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 2));
+      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1));
+      break;
+
+    case 2:
+      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 3));
+      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4));
+      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1));    
+      break;
+
+    default:
+      break;
+  }
+
+  waitingEnemies = [];
+  enemies = [];
   // Enemy 1
   for(var k = 0; k < 4; k++){
     for(var i = 0; i < 5; i++){
-      for(var j =0; j < 5; j++){
-        waitingEnemies.push(new Enemy1({x: 200 + 100*i, y: -50}, 300 + 100*i + 10*j + 1000*k));
+      for(var j =0; j < 3; j++){
+        waitingEnemies.push(new Enemy1({x: 200 + 100*i, y: -50}, 300 + 100*i + 10*j + 1000*k, curLevel, enemyShots));
       }
     }
   }
 
   // Enemy 2
+    // waitingEnemies.push(new Enemy2({x: 650, y: 100}, 0, curLevel, enemyShots))
+    // waitingEnemies.push(new Enemy2({x: 300, y: 300}, 0, curLevel, enemyShots))
+    // waitingEnemies.push(new Enemy2({x: 500, y: 550}, 0, curLevel, enemyShots))
+  
   var multiplier = 1440;
   for(var i = 0; i < 3; i++){
-    waitingEnemies.push(new Enemy2({x: 650, y: -50}, multiplier*i + 115))
-    waitingEnemies.push(new Enemy2({x: 480, y: -50}, multiplier*i + 170))
-    waitingEnemies.push(new Enemy2({x: 100, y: -50}, multiplier*i + 200))
-    waitingEnemies.push(new Enemy2({x: 400, y: -50}, multiplier*i + 390))
-    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 430))
-    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 590))
-    waitingEnemies.push(new Enemy2({x: 300, y: -50}, multiplier*i + 590))
-    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 700))
-    waitingEnemies.push(new Enemy2({x: 650, y: -50}, multiplier*i + 750))
-    waitingEnemies.push(new Enemy2({x: 270, y: -50}, multiplier*i + 800))
-    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 850))
-    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 950))
-    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 1000))
-    waitingEnemies.push(new Enemy2({x: 200, y: -50}, multiplier*i + 1050))
-    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 1100))
+    waitingEnemies.push(new Enemy2({x: 650, y: -100}, multiplier*i + 115, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 480, y: -50}, multiplier*i + 170, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 100, y: -50}, multiplier*i + 200, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 400, y: -50}, multiplier*i + 390, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 430, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 590, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 300, y: -50}, multiplier*i + 590, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 700, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 650, y: -50}, multiplier*i + 750, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 270, y: -50}, multiplier*i + 800, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 850, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 950, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 1000, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 200, y: -50}, multiplier*i + 1050, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 1100, curLevel, enemyShots))
   }
 
   // Enemy 3
   var direction = 1;
   for(var i = 0; i < 8; i++){
-    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 100, i%2+1))
+    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 100, i%2+1, curLevel, enemyShots))
     direction *= -1;
   }
   for(var i = 0; i < 8; i++){
-    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 2800, i%2+1))
+    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 2800, i%2+1, curLevel, enemyShots))
     direction *= -1;
   }
   for(var i = 0; i < 8; i++){
-    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 3800, i%2+1))
+    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 3800, i%2+1, curLevel, enemyShots))
     direction *= -1;
   }    
   for(var i = 0; i < 6; i++){
-    waitingEnemies.push(new Enemy3({x: 60 + 130*i, y: -50}, 900 + 20*i, 0))
-    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 1700 + 50*i, 0))
-    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 2000 + 50*i, 0))
-    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 3000 + 50*i, 0))
+    waitingEnemies.push(new Enemy3({x: 60 + 130*i, y: -50}, 900 + 20*i, 0, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 1700 + 50*i, 0, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 2000 + 50*i, 0, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 3000 + 50*i, 0, curLevel, enemyShots))
   }  
 
 
-
   // Enemy 4
-  for(var i = 0; i < 8; i++){
-    waitingEnemies.push(new Enemy4({x: -50, y: -50}, 600 +  10*i, 1))
+  for(var i = 0; i < 5; i++){
+    waitingEnemies.push(new Enemy4({x: -50, y: -50}, 600 +  20*i, 1, curLevel, enemyShots))
   }
   for(var j = 0; j < 4; j++){
-    for(var i = 0; i < 8; i++){
-      waitingEnemies.push(new Enemy4({x: -50, y: -50}, 1000 + 1000*j +  10*i, 1))
+    for(var i = 0; i < 5; i++){
+      waitingEnemies.push(new Enemy4({x: -50, y: -50}, 1000 + 1000*j +  20*i, 1, curLevel, enemyShots))
     }
-    for(var i = 0; i < 8; i++){
-      waitingEnemies.push(new Enemy4({x: 860, y: -50}, 1100 +  1100*j +  10*i, -1))
+  }
+  for(var j = 0; j < 3; j++){
+    for(var i = 0; i < 5; i++){
+      waitingEnemies.push(new Enemy4({x: 860, y: -50}, 1100 +  1100*j +  20*i, -1, curLevel, enemyShots))
     }  
   }
 
 
-
   // Enemy 5
-  for(var i = 0; i < 6; i++){
-    waitingEnemies.push(new Enemy5({x: 10, y: -50}, 1100 + 30*i, 1))
+  for(var i = 0; i < 5; i++){
+    waitingEnemies.push(new Enemy5({x: 10, y: -50}, 1100 + 30*i, 1, curLevel, enemyShots))
   }
-  for(var i = 0; i < 6; i++){
-    waitingEnemies.push(new Enemy5({x: 800, y: -50}, 2800 + 30*i, -1))
+  for(var i = 0; i < 5; i++){
+    waitingEnemies.push(new Enemy5({x: 800, y: -50}, 2800 + 30*i, -1, curLevel, enemyShots))
   }  
 
-
+  // Sort waiting enemies list from least startTime to greatest
   waitingEnemies.sort(function(a, b){
     return a.startTime - b.startTime;
   });
@@ -370,7 +676,7 @@ function renderGUI(elapsedTime, ctx) {
   // TODO: Render the GUI
 }
 
-},{"./bullet_pool":2,"./camera":3,"./enemies/enemy1":4,"./enemies/enemy2":5,"./enemies/enemy3":6,"./enemies/enemy4":7,"./enemies/enemy5":8,"./game":9,"./player":10,"./vector":15}],2:[function(require,module,exports){
+},{"./bullet_pool":2,"./camera":3,"./enemies/enemy1":4,"./enemies/enemy2":5,"./enemies/enemy3":6,"./enemies/enemy4":7,"./enemies/enemy5":8,"./game":9,"./player":10,"./powerup":11,"./vector":17}],2:[function(require,module,exports){
 "use strict";
 
 /**
@@ -537,11 +843,13 @@ Camera.prototype.toWorldCoordinates = function(screenCoordinates) {
   return Vector.add(screenCoordinates, this);
 }
 
-},{"./vector":15}],4:[function(require,module,exports){
+},{"./vector":17}],4:[function(require,module,exports){
 "use strict";
 
 const SPEED = 5;
 const MS_PER_FRAME = 1000/16;
+
+const EnemyShot = require('../shots/enemy_shot');
 
 /**
  * @module exports the Enemy1 class
@@ -554,23 +862,27 @@ module.exports = exports = Enemy1;
  * Creates a new enemy1 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy1(position, startTime) {
-  this.startTime = startTime;
-  this.worldWidth = 850;
-  this.worldHeight = 800;
-  this.position = {
-    x: position.x,
-    y: position.y
-  };
-  this.image = new Image();
-  this.image.src = 'assets/using/enemies/enemy_1.png';
-  this.remove = false;
-  this.frame = 0;
-  this.frameTimer = MS_PER_FRAME;
-  this.imgWidth = 15;
-  this.imgHeight = 19;
-  this.width = 2*this.imgWidth;
-  this.height = 2*this.imgHeight;
+function Enemy1(position, startTime, level, enemyShots) {
+    this.level = level;
+    this.startTime = startTime;
+    this.worldWidth = 850;
+    this.worldHeight = 800;
+    this.position = {
+      x: position.x,
+      y: position.y
+    };
+    this.image = new Image();
+    this.image.src = 'assets/using/enemies/enemy_1.png';
+    this.remove = false;
+    this.frame = 0;
+    this.frameTimer = MS_PER_FRAME;
+    this.imgWidth = 15;
+    this.imgHeight = 19;
+    this.width = 2*this.imgWidth;
+    this.height = 2*this.imgHeight;
+    this.enemyShots = enemyShots;
+    this.shotWait = 1500 - 150*this.level;
+    this.shotTimer = this.shotWait;
 }
 
 
@@ -578,7 +890,7 @@ function Enemy1(position, startTime) {
  * @function updates the enemy1 object
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  */
-Enemy1.prototype.update = function(time) {
+Enemy1.prototype.update = function(time, playerPos) {
     this.frameTimer -= time;
     if(this.frameTimer <= 0){
         this.frameTimer = MS_PER_FRAME;
@@ -588,13 +900,24 @@ Enemy1.prototype.update = function(time) {
         }
     }
 
-  // Apply velocity
-  this.position.y += SPEED;
 
-  if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
-     this.position.y < -50 || this.position.y > this.worldHeight + 50){
-    this.remove = true;;
-  }
+    // Fire when ready
+    this.shotTimer -= time;
+    if(this.shotTimer <= 0){
+        this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
+                                            y: this.position.y + 10},
+                                            playerPos));
+        this.shotTimer = this.shotWait;
+    }
+
+
+    // Apply velocity
+    this.position.y += SPEED;
+
+    if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
+      this.position.y < -50 || this.position.y > this.worldHeight + 50){
+      this.remove = true;;
+    }
 }
 
 /**
@@ -609,11 +932,13 @@ Enemy1.prototype.render = function(time, ctx) {
                   );  
 }
 
-},{}],5:[function(require,module,exports){
+},{"../shots/enemy_shot":12}],5:[function(require,module,exports){
 "use strict";
 
-const MOVEMENT = 3;
-const MS_PER_FRAME = 1000/50;
+const MOVEMENT = 0;
+const MS_PER_FRAME = 1000/5;
+
+const EnemyShot = require('../shots/enemy_shot');
 
 /**
  * @module exports the Enemy2 class
@@ -626,24 +951,28 @@ module.exports = exports = Enemy2;
  * Creates a new enemy2 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy2(position, startTime) {
-  this.startTime = startTime;
-  this.worldWidth = 850;
-  this.worldHeight = 800;
-  this.position = {
-    x: position.x,
-    y: position.y
-  };
-  this.image = new Image();
-  this.image.src = 'assets/using/enemies/enemy_22.png';
-  this.remove = false;
-  this.frame = 0;
-  this.frameTimer = MS_PER_FRAME;
-  this.imgWidth = 24;
-  this.imgHeight = 28;
-  this.width = 2.25*this.imgWidth;
-  this.height = 2.25*this.imgHeight;
-  this.state = 'default';
+function Enemy2(position, startTime, level, enemyShots) {
+    this.level = level;
+    this.startTime = startTime;
+    this.worldWidth = 850;
+    this.worldHeight = 800;
+    this.position = {
+        x: position.x,
+        y: position.y
+    };
+    this.image = new Image();
+    this.image.src = 'assets/using/enemies/enemy_2.png';
+    this.remove = false;
+    this.frame = 0;
+    this.frameTimer = MS_PER_FRAME;
+    this.imgWidth = 24;
+    this.imgHeight = 28;
+    this.width = 2.25*this.imgWidth;
+    this.height = 2.25*this.imgHeight;
+    this.state = 'default';
+    this.enemyShots = enemyShots;
+    this.shotWait = 1500 - 150*this.level;
+    this.shotTimer = this.shotWait;
 }
 
 
@@ -651,29 +980,36 @@ function Enemy2(position, startTime) {
  * @function updates the enemy2 object
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  */
-Enemy2.prototype.update = function(time) {
+Enemy2.prototype.update = function(time, playerPos) {
     if(this.state == 'firing'){
         this.frameTimer -= time;
         if(this.frameTimer <= 0){
             this.frameTimer = MS_PER_FRAME;
             this.frame++;
             if(this.frame >= 3){
-                // fire a new shot
-
+                this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
+                                                    y: this.position.y + 10},
+                                                    playerPos));
                 this.state = 'default';
-
                 this.frame = 0;
             }
         }
     }
 
-  // Apply movement
-  this.position.y += MOVEMENT;
+    // Fire when ready
+    this.shotTimer -= time;
+    if(this.shotTimer <= 0){
+        this.state = 'firing';
+        this.shotTimer = this.shotWait;
+    }
 
-  if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
-     this.position.y < -50 || this.position.y > this.worldHeight + 50){
-    this.remove = true;;
-  }
+    // Apply movement
+    this.position.y += MOVEMENT;
+
+    if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
+        this.position.y < -50 || this.position.y > this.worldHeight + 50){
+        this.remove = true;;
+    }
 }
 
 /**
@@ -688,10 +1024,12 @@ Enemy2.prototype.render = function(time, ctx) {
                   );  
 }
 
-},{}],6:[function(require,module,exports){
+},{"../shots/enemy_shot":12}],6:[function(require,module,exports){
 "use strict";
 
 const SPEED = 4;
+
+const EnemyShot = require('../shots/enemy_shot');
 
 /**
  * @module exports the Enemy3 class
@@ -704,7 +1042,8 @@ module.exports = exports = Enemy3;
  * Creates a new enemy3 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy3(position, startTime, type) {
+function Enemy3(position, startTime, type, level, enemyShots) {
+    this.level = level;    
     this.startTime = startTime;
     this.worldWidth = 850;
     this.worldHeight = 800;
@@ -720,6 +1059,9 @@ function Enemy3(position, startTime, type) {
     this.imgHeight = 26;
     this.width = 2*this.imgWidth;
     this.height = 2*this.imgHeight;
+    this.enemyShots = enemyShots;
+    this.shotWait = 1500 - 150*this.level;
+    this.shotTimer = this.shotWait;
 }
 
 
@@ -727,7 +1069,7 @@ function Enemy3(position, startTime, type) {
  * @function updates the enemy3 object
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  */
-Enemy3.prototype.update = function(time) {
+Enemy3.prototype.update = function(time, playerPos) {
     // Apply velocity
     switch(this.type){
         case 0:
@@ -741,10 +1083,19 @@ Enemy3.prototype.update = function(time) {
             break;
     }
 
-  if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
-     this.position.y < -50 || this.position.y > this.worldHeight + 50){
-    this.remove = true;;
-  }
+    // Fire when ready
+    // this.shotTimer -= time;
+    // if(this.shotTimer <= 0){
+    //     this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
+    //                                         y: this.position.y + 10},
+    //                                         playerPos));
+    //     this.shotTimer = this.shotWait;
+    // }
+
+    if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
+        this.position.y < -50 || this.position.y > this.worldHeight + 50){
+        this.remove = true;;
+    }
 }
 
 /**
@@ -759,10 +1110,12 @@ Enemy3.prototype.render = function(time, ctx) {
                   );  
 }
 
-},{}],7:[function(require,module,exports){
+},{"../shots/enemy_shot":12}],7:[function(require,module,exports){
 "use strict";
 
 const MS_PER_FRAME = 1000/8;
+
+const EnemyShot = require('../shots/enemy_shot');
 
 /**
  * @module exports the Enemy4 class
@@ -775,7 +1128,8 @@ module.exports = exports = Enemy4;
  * Creates a new enemy4 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy4(position, startTime, acceleration) {
+function Enemy4(position, startTime, acceleration, level, enemyShots) {
+    this.level = level;    
     this.startTime = startTime;
     this.worldWidth = 850;
     this.worldHeight = 800;
@@ -797,6 +1151,9 @@ function Enemy4(position, startTime, acceleration) {
     this.imgHeight = 18;
     this.width = 2*this.imgWidth;
     this.height = 2*this.imgHeight;
+    this.enemyShots = enemyShots;
+    this.shotWait = 1500 - 150*this.level;
+    this.shotTimer = this.shotWait;
 }
 
 
@@ -804,7 +1161,7 @@ function Enemy4(position, startTime, acceleration) {
  * @function updates the enemy4 object
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  */
-Enemy4.prototype.update = function(time) {
+Enemy4.prototype.update = function(time, playerPos) {
     this.frameTimer -= time;
     if(this.frameTimer <= 0){
         this.frameTimer = MS_PER_FRAME;
@@ -814,17 +1171,27 @@ Enemy4.prototype.update = function(time) {
         }
     }
 
-  // Apply velocity
-  this.position.y += this.velocity.y;
-  this.position.x += this.velocity.x;
+    // Apply velocity
+    this.position.y += this.velocity.y;
+    this.position.x += this.velocity.x;
 
-  // Apply acceleration
-  this.velocity.x -= this.acceleration/10;
+    // Apply acceleration
+    this.velocity.x -= this.acceleration/10;
 
-  if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
-     this.position.y < -50 || this.position.y > this.worldHeight + 50){
-    this.remove = true;;
-  }
+
+    // Fire when ready
+    this.shotTimer -= time;
+    if(this.shotTimer <= 0){
+        this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
+                                            y: this.position.y + 10},
+                                            playerPos));
+        this.shotTimer = this.shotWait;
+    }  
+
+    if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
+        this.position.y < -50 || this.position.y > this.worldHeight + 50){
+        this.remove = true;;
+    }
 }
 
 /**
@@ -839,11 +1206,13 @@ Enemy4.prototype.render = function(time, ctx) {
                   );  
 }
 
-},{}],8:[function(require,module,exports){
+},{"../shots/enemy_shot":12}],8:[function(require,module,exports){
 "use strict";
 
 const MS_PER_FRAME = 1000/16;
 const DIST_TO_SWITCH = 150;
+
+const EnemyShot = require('../shots/enemy_shot');
 
 /**
  * @module exports the Enemy5 class
@@ -856,7 +1225,8 @@ module.exports = exports = Enemy5;
  * Creates a new enemy5 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy5(position, startTime, direction) {
+function Enemy5(position, startTime, direction, level, enemyShots) {
+    this.level = level;
     this.startTime = startTime;
     this.worldWidth = 850;
     this.worldHeight = 800;
@@ -879,6 +1249,9 @@ function Enemy5(position, startTime, direction) {
     this.imgHeight = 21;
     this.width = 2*this.imgWidth;
     this.height = 2*this.imgHeight;
+    this.shotWait = 1500 - 150*this.level;
+    this.shotTimer = this.shotWait;
+    this.enemyShots = enemyShots;
 }
 
 
@@ -886,7 +1259,8 @@ function Enemy5(position, startTime, direction) {
  * @function updates the enemy5 object
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  */
-Enemy5.prototype.update = function(time) {
+Enemy5.prototype.update = function(time, playerPos) {
+    // Update frames
     this.frameTimer -= time;
     if(this.frameTimer <= 0){
         this.frameTimer = MS_PER_FRAME;
@@ -896,6 +1270,16 @@ Enemy5.prototype.update = function(time) {
         }
     }
 
+    // Fire when ready
+    // this.shotTimer -= time;
+    // if(this.shotTimer <= 0){
+    //     this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
+    //                                         y: this.position.y + 10},
+    //                                         playerPos));
+    //     this.shotTimer = this.shotWait;
+    // }
+
+    // Swap x and y velocity every so often for zig zagging
     this.distanceTravelled += 3;
     if(this.distanceTravelled >= DIST_TO_SWITCH){
         var temp = this.velocity.y;
@@ -926,7 +1310,7 @@ Enemy5.prototype.render = function(time, ctx) {
                   );  
 }
 
-},{}],9:[function(require,module,exports){
+},{"../shots/enemy_shot":12}],9:[function(require,module,exports){
 "use strict";
 
 /**
@@ -1034,6 +1418,7 @@ function Player() {
   this.shieldTimer = SHIELD_TIMER;
   this.shields = 100;
   this.lives = 3;
+  this.state = 'ready';
 }
 
 Player.prototype.debug = function(key){
@@ -1069,6 +1454,7 @@ Player.prototype.struck = function(damage){
   }
   else{
     // Destroy player
+    this.state = 'exploding';
   }
 }
 
@@ -1105,13 +1491,22 @@ Player.prototype.update = function(elapsedTime, input) {
     }
   }
 
-  // set the velocity
-  this.velocity.x = 0;
-  if(input.left) this.velocity.x -= PLAYER_SPEED;
-  if(input.right) this.velocity.x += PLAYER_SPEED;
-  this.velocity.y = 0;
-  if(input.up) this.velocity.y -= PLAYER_SPEED / 2;
-  if(input.down) this.velocity.y += PLAYER_SPEED;
+  if(this.state == 'running' || this.state == 'ready'){
+    // set the velocity
+    this.velocity.x = 0;
+    if(input.left) this.velocity.x -= PLAYER_SPEED;
+    if(input.right) this.velocity.x += PLAYER_SPEED;
+    this.velocity.y = 0;
+    if(input.up) this.velocity.y -= PLAYER_SPEED / 2;
+    if(input.down) this.velocity.y += PLAYER_SPEED;
+  }
+  else if(this.state == 'finished'){
+    this.velocity.x = 0;
+    this.velocity.y = -PLAYER_SPEED;
+    if(this.position.y < -50){
+      this.state = 'offscreen';
+    }
+  }
 
   // determine player angle
   this.angle = 0;
@@ -1126,14 +1521,13 @@ Player.prototype.update = function(elapsedTime, input) {
   if(this.position.x < 10) this.position.x = 10;
   if(this.position.x > 750) this.position.x = 750;
   if(this.position.y > 750) this.position.y = 750;
-  if(this.position.y < 36) this.position.y = 36;
+  if(this.position.y < 36 && (this.state == 'running' || this.state == 'ready')) this.position.y = 36;
 
   this.shot12Timer -= elapsedTime;
   this.shot34Timer -= elapsedTime;
 
-
   // add necessary shots
-  if(input.firing){
+  if(input.firing && this.state == 'running'){
     if(this.shot12Timer <= 0){
       this.shots.push(new Shot1(this.position, this.shot1Level));
       if(this.shot2Level >= 0){
@@ -1191,7 +1585,7 @@ Player.prototype.render = function(elapsedTime, ctx) {
 
   // Draw shield
   if(this.shielding){
-    ctx.drawImage(this.shield, 0 ,0, 556, 556, -27, -20, 100, 100);  
+    ctx.drawImage(this.shield, 0 ,0, 556, 556, -11, -5, 70, 70);  
   }
 
   ctx.restore();
@@ -1201,7 +1595,134 @@ Player.prototype.render = function(elapsedTime, ctx) {
     this.shots[i].render(elapsedTime, ctx);
   }
 }
-},{"./shots/shot1":11,"./shots/shot2":12,"./shots/shot3":13,"./shots/shot4":14,"./vector":15}],11:[function(require,module,exports){
+},{"./shots/shot1":13,"./shots/shot2":14,"./shots/shot3":15,"./shots/shot4":16,"./vector":17}],11:[function(require,module,exports){
+"use strict";
+
+const SPEED = 3;
+
+/**
+ * @module exports the Powerup class
+ */
+module.exports = exports = Powerup;
+
+
+/**
+ * @constructor Powerup
+ * Creates a new powerup object
+ * @param {Postition} position object specifying an x and y
+ */
+function Powerup(position, startTime, type) {
+    this.startTime = startTime;
+    this.worldWidth = 850;
+    this.worldHeight = 800;
+    this.type = type;
+    this.position = {
+        x: position.x,
+        y: position.y
+    };
+    this.image = new Image();
+    this.image.src = 'assets/using/powerups/powerup_' + type + '.png';
+    this.remove = false;
+    this.imgWidth = 20;
+    this.imgHeight = 21;
+    this.width = 1.5*this.imgWidth;
+    this.height = 1.5*this.imgHeight;
+    this.radius = this.width/2;
+}
+
+
+/**
+ * @function updates the powerup object
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ */
+Powerup.prototype.update = function(time) {
+  // Apply velocity
+  this.position.y += SPEED;
+
+  if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
+     this.position.y < -50 || this.position.y > this.worldHeight + 50){
+    this.remove = true;;
+  }
+}
+
+/**
+ * @function renders the powerup into the provided context
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ * {CanvasRenderingContext2D} ctx the context to render into
+ */
+Powerup.prototype.render = function(time, ctx) {
+    ctx.drawImage(this.image,
+                  this.imgWidth*this.frame, 0, this.imgWidth, this.imgHeight,
+                  this.position.x, this.position.y, this.width, this.height
+                  );  
+}
+
+},{}],12:[function(require,module,exports){
+"use strict";
+
+const Vector = require('../vector');
+
+const SPEED = 4;
+
+/**
+ * @module exports the EnemyShot class
+ */
+module.exports = exports = EnemyShot;
+
+
+/**
+ * @constructor EnemyShot
+ * Creates a new enemyShot object
+ * @param {Postition} position object specifying an x and y
+ */
+function EnemyShot(position, playerPos) {
+  this.worldWidth = 810;
+  this.worldHeight = 786;
+  var direction = Vector.subtract(position, playerPos);
+  var position = Vector.add(position, {x:30, y:30});
+  this.velocity = Vector.scale(Vector.normalize(direction), SPEED);
+
+  this.position = {
+    x: position.x,
+    y: position.y
+  };
+  // this.velocity = {
+  //     x: 3 * (Math.PI/2 - angle)/(Math.PI/2),
+  //     y: 3 * (angle - Math.PI/2)/(Math.PI/2)
+  // }
+  this.image = new Image();
+  this.image.src = 'assets/using/shots/enemy_shot.png';
+  this.radius = 5;
+  this.remove = false;
+}
+
+
+/**
+ * @function updates the enemyShot object
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ */
+EnemyShot.prototype.update = function(time) {
+  // Apply velocity
+  this.position.x -= this.velocity.x;
+  this.position.y -= this.velocity.y;
+
+  if(this.position.x < -50 || this.position.x > this.worldWidth ||
+     this.position.y < -50 || this.position.y > this.worldHeight){
+    this.remove = true;;
+  }
+}
+
+/**
+ * @function renders the enemyShot into the provided context
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ * {CanvasRenderingContext2D} ctx the context to render into
+ */
+EnemyShot.prototype.render = function(time, ctx) {
+    // TODO: draw properly
+    ctx.drawImage(this.image, 0 ,0, 11, 11, this.position.x, this.position.y, 10, 10);  
+}
+
+},{"../vector":17}],13:[function(require,module,exports){
 "use strict";
 
 const SPEED = 8;
@@ -1256,7 +1777,7 @@ Shot1.prototype.render = function(time, ctx) {
     ctx.translate(-this.position.x, -this.position.y);
 }
 
-},{}],12:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 "use strict";
 
 const SPEED = 8;
@@ -1312,7 +1833,7 @@ Shot2.prototype.render = function(time, ctx) {
     ctx.translate(-this.position.x, -this.position.y);
 }
 
-},{}],13:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 "use strict";
 
 const SPEED = 5;
@@ -1368,7 +1889,7 @@ Shot3.prototype.render = function(time, ctx) {
     
 }
 
-},{}],14:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 "use strict";
 
 const SPEED = 8;
@@ -1425,7 +1946,7 @@ Shot4.prototype.render = function(time, ctx) {
 
 }
 
-},{}],15:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 "use strict";
 
 /**

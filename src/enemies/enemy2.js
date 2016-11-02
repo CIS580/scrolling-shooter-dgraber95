@@ -1,7 +1,9 @@
 "use strict";
 
-const MOVEMENT = 3;
-const MS_PER_FRAME = 1000/100;
+const MOVEMENT = 0;
+const MS_PER_FRAME = 1000/5;
+
+const EnemyShot = require('../shots/enemy_shot');
 
 /**
  * @module exports the Enemy2 class
@@ -24,7 +26,7 @@ function Enemy2(position, startTime, level, enemyShots) {
         y: position.y
     };
     this.image = new Image();
-    this.image.src = 'assets/using/enemies/enemy_22.png';
+    this.image.src = 'assets/using/enemies/enemy_2.png';
     this.remove = false;
     this.frame = 0;
     this.frameTimer = MS_PER_FRAME;
@@ -34,7 +36,7 @@ function Enemy2(position, startTime, level, enemyShots) {
     this.height = 2.25*this.imgHeight;
     this.state = 'default';
     this.enemyShots = enemyShots;
-    this.shotWait = 1200 - 150*this.level;
+    this.shotWait = 1500 - 150*this.level;
     this.shotTimer = this.shotWait;
 }
 

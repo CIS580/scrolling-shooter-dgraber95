@@ -2,6 +2,8 @@
 
 const MS_PER_FRAME = 1000/8;
 
+const EnemyShot = require('../shots/enemy_shot');
+
 /**
  * @module exports the Enemy4 class
  */
@@ -37,7 +39,7 @@ function Enemy4(position, startTime, acceleration, level, enemyShots) {
     this.width = 2*this.imgWidth;
     this.height = 2*this.imgHeight;
     this.enemyShots = enemyShots;
-    this.shotWait = 1200 - 150*this.level;
+    this.shotWait = 1500 - 150*this.level;
     this.shotTimer = this.shotWait;
 }
 

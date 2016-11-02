@@ -2,6 +2,8 @@
 
 const SPEED = 4;
 
+const EnemyShot = require('../shots/enemy_shot');
+
 /**
  * @module exports the Enemy3 class
  */
@@ -31,7 +33,7 @@ function Enemy3(position, startTime, type, level, enemyShots) {
     this.width = 2*this.imgWidth;
     this.height = 2*this.imgHeight;
     this.enemyShots = enemyShots;
-    this.shotWait = 1200 - 150*this.level;
+    this.shotWait = 1500 - 150*this.level;
     this.shotTimer = this.shotWait;
 }
 
@@ -55,13 +57,13 @@ Enemy3.prototype.update = function(time, playerPos) {
     }
 
     // Fire when ready
-    this.shotTimer -= time;
-    if(this.shotTimer <= 0){
-        this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
-                                            y: this.position.y + 10},
-                                            playerPos));
-        this.shotTimer = this.shotWait;
-    }
+    // this.shotTimer -= time;
+    // if(this.shotTimer <= 0){
+    //     this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
+    //                                         y: this.position.y + 10},
+    //                                         playerPos));
+    //     this.shotTimer = this.shotWait;
+    // }
 
     if(this.position.x < -50 || this.position.x > this.worldWidth + 50 ||
         this.position.y < -50 || this.position.y > this.worldHeight + 50){

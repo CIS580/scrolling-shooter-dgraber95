@@ -1,5 +1,9 @@
 "use strict";
 
+const Vector = require('../vector');
+
+const SPEED = 4;
+
 /**
  * @module exports the EnemyShot class
  */
@@ -14,17 +18,21 @@ module.exports = exports = EnemyShot;
 function EnemyShot(position, playerPos) {
   this.worldWidth = 810;
   this.worldHeight = 786;
+  var direction = Vector.subtract(position, playerPos);
+  var position = Vector.add(position, {x:30, y:30});
+  this.velocity = Vector.scale(Vector.normalize(direction), SPEED);
+
   this.position = {
     x: position.x,
     y: position.y
   };
-  this.velocity = {
-      x: playerPos.x - this.position.x,
-      y: playerPos.y - this.position.y
-  }
+  // this.velocity = {
+  //     x: 3 * (Math.PI/2 - angle)/(Math.PI/2),
+  //     y: 3 * (angle - Math.PI/2)/(Math.PI/2)
+  // }
   this.image = new Image();
-  this.image.src = 'assets/using/shots/enemyShot.png';
-  this.radius = 4;
+  this.image.src = 'assets/using/shots/enemy_shot.png';
+  this.radius = 5;
   this.remove = false;
 }
 
@@ -35,8 +43,8 @@ function EnemyShot(position, playerPos) {
  */
 EnemyShot.prototype.update = function(time) {
   // Apply velocity
-  this.position.x += this.velocity.x;
-  this.position.y += this.velocity.y;
+  this.position.x -= this.velocity.x;
+  this.position.y -= this.velocity.y;
 
   if(this.position.x < -50 || this.position.x > this.worldWidth ||
      this.position.y < -50 || this.position.y > this.worldHeight){
@@ -51,5 +59,5 @@ EnemyShot.prototype.update = function(time) {
  */
 EnemyShot.prototype.render = function(time, ctx) {
     // TODO: draw properly
-    //ctx.drawImage(this.image, 12*this.level ,0, 12, 13, 0, 10, 24, 26);  
+    ctx.drawImage(this.image, 0 ,0, 11, 11, this.position.x, this.position.y, 10, 10);  
 }

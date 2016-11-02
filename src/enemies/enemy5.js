@@ -3,6 +3,8 @@
 const MS_PER_FRAME = 1000/16;
 const DIST_TO_SWITCH = 150;
 
+const EnemyShot = require('../shots/enemy_shot');
+
 /**
  * @module exports the Enemy5 class
  */
@@ -38,7 +40,7 @@ function Enemy5(position, startTime, direction, level, enemyShots) {
     this.imgHeight = 21;
     this.width = 2*this.imgWidth;
     this.height = 2*this.imgHeight;
-    this.shotWait = 1200 - 150*this.level;
+    this.shotWait = 1500 - 150*this.level;
     this.shotTimer = this.shotWait;
     this.enemyShots = enemyShots;
 }
@@ -60,13 +62,13 @@ Enemy5.prototype.update = function(time, playerPos) {
     }
 
     // Fire when ready
-    this.shotTimer -= time;
-    if(this.shotTimer <= 0){
-        this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
-                                            y: this.position.y + 10},
-                                            playerPos));
-        this.shotTimer = this.shotWait;
-    }
+    // this.shotTimer -= time;
+    // if(this.shotTimer <= 0){
+    //     this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
+    //                                         y: this.position.y + 10},
+    //                                         playerPos));
+    //     this.shotTimer = this.shotWait;
+    // }
 
     // Swap x and y velocity every so often for zig zagging
     this.distanceTravelled += 3;
