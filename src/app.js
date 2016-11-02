@@ -1,5 +1,7 @@
 "use strict";
 
+const READY_TIMER = 2400;
+
 /* Classes and Libraries */
 const Game = require('./game');
 const Vector = require('./vector');
@@ -56,6 +58,11 @@ var enemyShots = [];
 var enemyTimer = 0;
 var pKey = false;
 var state = 'ready';
+var countDown = COUNTDOWN;  // Countdown for ready screen
+var enemiesDestroyed = 0;
+var levelDestroyed = 0;
+var score = 0;
+var levelScore = 0;
 
 
 /**
@@ -63,6 +70,16 @@ var state = 'ready';
  * Handles keydown events
  */
 window.onkeydown = function(event) {
+  if(state == 'summary'){
+    curLevel++;
+    // start next level
+    state == 'ready';
+  }
+  else if(state == 'dead'){
+    // restart current level
+    state == 'ready';
+  }
+
   switch(event.key) {
     case "ArrowUp":
     case "w":
@@ -119,7 +136,6 @@ window.onkeydown = function(event) {
           firing: false
           }          
         }
-        
       }
       break;      
     default:
@@ -203,80 +219,111 @@ function update(elapsedTime) {
 
   switch(state){
     case 'ready':
+      // update the player
+      player.update(elapsedTime, input);
 
+      // Update countdown
+      countDown -= elapsedTime;
+      if(countDown <= 0){
+        countDown = COUNTDOWN;
+        state = 'running';
+        player.state = 'running';
+      }
       break;
 
     case 'running':
+      enemyTimer++;
 
+      // Pop any waiting enemies whose start times have passed
+      while(waitingEnemies.length){
+        if(waitingEnemies[0].startTime <= enemyTimer){
+          enemies.push(waitingEnemies[0]);
+          waitingEnemies.splice(0, 1);
+        }
+        else break;
+      }
+
+      // Pop first waiting powerup off the waiting list and make active
+      if(waitingPowerups.length && enemyTimer >= waitingPowerups[0].startTime){
+        powerups.push(waitingPowerups[0]);
+        waitingPowerups.splice(0, 1);
+      }
+
+      // Move the three backgrounds
+      levelTop-=1;
+      cloudTop -= 2;
+      platTop -= 3;
+      if(levelTop <= 0) levelTop = levelSize.height;
+      if(cloudTop <= 0) cloudTop = levelSize.height;
+      if(platTop <= 0) platTop = levelSize.height;
+
+      // update the player
+      player.update(elapsedTime, input);
+
+      // Update enemies
+      var markedForRemoval = [];
+      enemies.forEach(function(enemy, i){
+        enemy.update(elapsedTime);
+        if(enemy.remove)
+          markedForRemoval.unshift(i);
+      });
+      // Remove enemies that are off-screen or have been destroyed
+      markedForRemoval.forEach(function(index){
+        enemies.splice(index, 1);
+      });
+
+      // Update enemy shots
+      var markedForRemoval = [];
+      enemyShots.forEach(function(shot, i){
+        shot.update(elapsedTime);
+        if(shot.remove)
+          markedForRemoval.unshift(i);
+      });
+      // Remove shots that have hit player or go off screen
+      markedForRemoval.forEach(function(index){
+        enemyShots.splice(index, 1);
+      });
+
+      // Check for shot on player collisions
+      // Check for enemy on player collisions
+      // Check for shot on enemy collisions
+      // Check for player on powerup collisions
+
+      // If player is dead, check lives count and act accordingly
+      if(player.state == 'dead'){
+        if(player.lives > 0){
+          state = 'dead';
+        }
+        else{
+          state = 'gameover';
+        }
+      }
+
+      if(waitingEnemies.length == 0 && enemies.length == 0){
+        player.state = 'finished';
+        state = 'levelDone';
+      }
       break;
-
+    
+    case 'levelDone':
+      if(player.state == 'offscreen'){
+        if(curLevel < 2) state = 'summary';
+          else state = 'gameDone';
+      }
+      break;
+    case 'gameDone':
     case 'paused':
-
-      break;
-
     case 'dead':
-
-      break;
-
     case 'gameover':
-
-      break;
-
     case 'summary':
-
-      break;
   }
-
-  enemyTimer++;
-  console.log(enemyTimer);
-
-  // Pop first waiting enemy off the waiting list and make active
-  if(waitingEnemies.length && enemyTimer >= waitingEnemies[0].startTime){
-    enemies.push(waitingEnemies[0]);
-    waitingEnemies.splice(0, 1);
-  }
-
-  // Pop first waiting powerup off the waiting list and make active
-  if(waitingPowerups.length && enemyTimer >= waitingPowerups[0].startTime){
-    powerups.push(waitingPowerups[0]);
-    waitingPowerups.splice(0, 1);
-  }
-
-  // Move the three backgrounds
-  levelTop-=1;
-  cloudTop -= 2;
-  platTop -= 3;
-  if(levelTop <= 0) levelTop = levelSize.height;
-  if(cloudTop <= 0) cloudTop = levelSize.height;
-  if(platTop <= 0) platTop = levelSize.height;
-
-  // update the player
-  player.update(elapsedTime, input);
-
-  // Update enemies
-  var markedForRemoval = [];
-  enemies.forEach(function(enemy, i){
-    enemy.update(elapsedTime);
-    if(enemy.remove)
-      markedForRemoval.unshift(i);
-  });
-  // Remove enemies that are off-screen or have been destroyed
-  markedForRemoval.forEach(function(index){
-    enemies.splice(index, 1);
-  });
-
-  // Update enemy shots
-  var markedForRemoval = [];
-  enemyShots.forEach(function(shot, i){
-    shot.update(elapsedTime);
-    if(shot.remove)
-      markedForRemoval.unshift(i);
-  });
-  // Remove shots that have hit player or go off screen
-  markedForRemoval.forEach(function(index){
-    enemyShots.splice(index, 1);
-  });  
 }
+
+function restart(){
+
+}
+
+
 
 /**
   * @function render
@@ -286,15 +333,7 @@ function update(elapsedTime) {
   * @param {CanvasRenderingContext2D} ctx the context to render to
   */
 function render(elapsedTime, ctx) {
-  ctx.fillStyle = "white"
-  ctx.fillRect(0, 0, 1024, screenSize.height);
-
-  ctx.font = "30px Arial";
-  ctx.strokeText(enemyTimer, 820, 600);
-  ctx.stroke();
-
-/********* Draw far background *********/
-{
+{/********* Draw far background *********/
   if(levelTop < levelSize.height - screenSize.height){  
     ctx.drawImage(levels[curLevel], 
                   0, levelTop, levelSize.width, screenSize.height,
@@ -312,13 +351,9 @@ function render(elapsedTime, ctx) {
                   0, (levelSize.height - levelTop), levelSize.width, screenSize.height 
                   );
   }
-}
-/***********************************/
+}/***************************************/
 
-
-
-/********* Draw clouds *********/
-{
+{/************* Draw clouds *************/
   ctx.globalAlpha = 0.7;
   if(cloudTop < levelSize.height - screenSize.height){  
     ctx.drawImage(clouds, 
@@ -338,13 +373,9 @@ function render(elapsedTime, ctx) {
                   );
   }
   ctx.globalAlpha = 1;
-}
-/***********************************/
+}/***************************************/
 
-
-
-
-/********* Draw platforms *********/
+{/************ Draw platforms ***********/
   if(platTop < levelSize.height - screenSize.height){  
     ctx.drawImage(platforms, 
                   0, platTop, levelSize.width, screenSize.height,
@@ -362,8 +393,14 @@ function render(elapsedTime, ctx) {
                   0, (levelSize.height - platTop), levelSize.width, screenSize.height 
                   );
   }
-/***********************************/
+}/***************************************/
 
+  ctx.fillStyle = "white"
+  ctx.fillRect(0, 0, 1024, screenSize.height);
+
+  ctx.font = "30px Arial";
+  ctx.strokeText(enemyTimer, 820, 600);
+  ctx.stroke();
 
   // Render enemies
   for(var i = 0; i < enemies.length; i++){
@@ -376,10 +413,106 @@ function render(elapsedTime, ctx) {
   }
 
   // Render the player
-  player.render(elapsedTime, ctx);  
+  player.render(elapsedTime, ctx);
 
   // Render the GUI 
   renderGUI(elapsedTime, ctx);
+
+  switch(state){
+    case 'ready':
+      ctx.globalAlpha = 0.2;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, levelSize.width, canvas.height);
+      ctx.globalAlpha = 1;
+      ctx.font = "75px impact";
+      ctx.fillStyle = 'white';
+      ctx.strokeStyle = 'black';
+      ctx.textAlign = "center";
+      ctx.fillText(Math.ceil(countDown/(COUNTDOWN/3)),  levelSize.width/2, canvas.height/2); 
+      ctx.strokeText(Math.ceil(countDown/(COUNTDOWN/3)),  levelSize.width/2, canvas.height/2);
+      break;
+    case 'running':
+      break;
+    case 'paused':
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, levelSize.width, canvas.height);
+      ctx.globalAlpha = 1;
+      ctx.textAlign = "center";
+      ctx.fillStyle = 'white';
+      ctx.strokeStyle = 'black';
+      ctx.font = "50px impact";
+      ctx.fillText("PAUSED", levelSize.width/2, canvas.height/2); 
+      ctx.strokeText("PAUSED", levelSize.width/2, canvas.height/2); 
+      break;
+    case 'dead':
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, levelSize.width, canvas.height);
+      ctx.globalAlpha = 1;
+      ctx.font = "60px Georgia, serif";
+      ctx.fillStyle = "red";
+      ctx.strokeStyle = "black";
+      ctx.textAlign = "center";
+      ctx.fillText("YOU DIED", levelSize.width/2, canvas.height/2); 
+      ctx.strokeText("YOU DIED", levelSize.width/2, canvas.height/2); 
+      ctx.font = "35px impact";
+      ctx.fillStyle = "black";
+      ctx.fillText("Lives remaining: " + score, levelSize.width/2, canvas.height/2 + 40);
+      ctx.fillText("Press any key to continue", levelSize.width/2, canvas.height/2 + 80);
+      break;
+    case 'gameover':
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, levelSize.width, canvas.height);
+      ctx.globalAlpha = 1;
+      ctx.font = "60px Georgia, serif";
+      ctx.fillStyle = "red";
+      ctx.strokeStyle = "black";
+      ctx.textAlign = "center";
+      ctx.fillText("YOU DIED", levelSize.width/2, canvas.height/2 - 75); 
+      ctx.strokeText("YOU DIED", levelSize.width/2, canvas.height/2 - 75);       
+      ctx.font = "40px impact";
+      ctx.fillText("GAME OVER", levelSize.width/2, canvas.height/2); 
+      ctx.strokeText("GAME OVER", levelSize.width/2, canvas.height/2); 
+      ctx.font = "35px impact";
+      ctx.fillStyle = "black";
+      ctx.fillText("Final Score: " + score, levelSize.width/2, canvas.height/2 + 40);
+      ctx.fillText("Total Enemies Destroyed: " + enemiesDestroyed, levelSize.width/2, canvas.height/2 + 80);
+      break;
+    case 'gameDone':
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, levelSize.width, canvas.height);
+      ctx.globalAlpha = 1;
+      ctx.font = "60px impact";
+      ctx.fillStyle = "red";
+      ctx.strokeStyle = 'black';
+      ctx.textAlign = "center";
+      ctx.fillText("GAME OVER", levelSize.width/2, canvas.height/2); 
+      ctx.strokeText("GAME OVER", levelSize.width/2, canvas.height/2); 
+      ctx.font = "35px impact";
+      ctx.fillStyle = "black";
+      ctx.fillText("Final Score: " + score, levelSize.width/2, canvas.height/2 + 40);
+      ctx.fillText("Total Enemies Destroyed: " + enemiesDestroyed, levelSize.width/2, canvas.height/2 + 80);
+      break;      
+    case 'summary':
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, levelSize.width, canvas.height);
+      ctx.globalAlpha = 1;
+      ctx.font = "60px impact";
+      ctx.fillStyle = "white";
+      ctx.strokeStyle = 'black';
+      ctx.textAlign = "center";
+      ctx.fillText("LEVEL COMPLETE!", levelSize.width/2, canvas.height/2); 
+      ctx.strokeText("LEVEL COMPLETE!", levelSize.width/2, canvas.height/2); 
+      ctx.font = "35px impact";
+      ctx.fillStyle = "black";
+      ctx.fillText("Level Score: " + levelScore, levelSize.width/2, canvas.height/2 + 40);
+      ctx.fillText("Enemies Destroyed: " + enemiesDestroyed, levelSize.width/2, canvas.height/2 + 80);
+      break;
+  }
 }
 
 

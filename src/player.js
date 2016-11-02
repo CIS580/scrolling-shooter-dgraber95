@@ -47,6 +47,7 @@ function Player() {
   this.shieldTimer = SHIELD_TIMER;
   this.shields = 100;
   this.lives = 3;
+  this.state = 'ready';
 }
 
 Player.prototype.debug = function(key){
@@ -82,6 +83,7 @@ Player.prototype.struck = function(damage){
   }
   else{
     // Destroy player
+    this.state = 'exploding';
   }
 }
 
@@ -118,13 +120,21 @@ Player.prototype.update = function(elapsedTime, input) {
     }
   }
 
-  // set the velocity
-  this.velocity.x = 0;
-  if(input.left) this.velocity.x -= PLAYER_SPEED;
-  if(input.right) this.velocity.x += PLAYER_SPEED;
-  this.velocity.y = 0;
-  if(input.up) this.velocity.y -= PLAYER_SPEED / 2;
-  if(input.down) this.velocity.y += PLAYER_SPEED;
+  if(this.state == 'running' || this.state == 'ready'){
+    // set the velocity
+    this.velocity.x = 0;
+    if(input.left) this.velocity.x -= PLAYER_SPEED;
+    if(input.right) this.velocity.x += PLAYER_SPEED;
+    this.velocity.y = 0;
+    if(input.up) this.velocity.y -= PLAYER_SPEED / 2;
+    if(input.down) this.velocity.y += PLAYER_SPEED;
+  }
+  else if(this.state == 'finished'){
+    this.velocity.y -= PLAYER_SPEED * 4;
+    if(this.position.y < -50){
+      this.state == 'offscreen';
+    }
+  }
 
   // determine player angle
   this.angle = 0;
@@ -139,14 +149,14 @@ Player.prototype.update = function(elapsedTime, input) {
   if(this.position.x < 10) this.position.x = 10;
   if(this.position.x > 750) this.position.x = 750;
   if(this.position.y > 750) this.position.y = 750;
-  if(this.position.y < 36) this.position.y = 36;
+  if(this.position.y < 36 && this.state != 'finished') this.position.y = 36;
 
   this.shot12Timer -= elapsedTime;
   this.shot34Timer -= elapsedTime;
 
 
   // add necessary shots
-  if(input.firing){
+  if(input.firing && this.state == 'running'){
     if(this.shot12Timer <= 0){
       this.shots.push(new Shot1(this.position, this.shot1Level));
       if(this.shot2Level >= 0){
