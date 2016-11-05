@@ -1,6 +1,6 @@
 "use strict";
 
-const MOVEMENT = 0;
+const MOVEMENT = 3;
 const MS_PER_FRAME = 1000/5;
 
 const EnemyShot = require('../shots/enemy_shot');

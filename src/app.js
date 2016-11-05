@@ -54,7 +54,7 @@ var enemies = [];
 var waitingPowerups = [];
 var powerups = [];
 var enemyShots = [];
-var enemyTimer = 300;
+var enemyTimer = 0;
 var pKey = false;
 var state = 'ready';
 var countDown = READY_TIMER;  // Countdown for ready screen
@@ -250,9 +250,9 @@ function update(elapsedTime) {
       }
 
       // Move the three backgrounds
-      // levelTop-=1;
-      // cloudTop -= 2;
-      // platTop -= 3;
+      levelTop -= 1;
+      cloudTop -= 2;
+      platTop -= 3;
       if(levelTop <= 0) levelTop = levelSize.height;
       if(cloudTop <= 0) cloudTop = levelSize.height;
       if(platTop <= 0) platTop = levelSize.height;
@@ -272,6 +272,18 @@ function update(elapsedTime) {
         enemies.splice(index, 1);
       });
 
+      // Update powerups
+      var markedForRemoval = [];
+      powerups.forEach(function(powerup, i){
+        powerup.update(elapsedTime);
+        if(powerup.remove)
+          markedForRemoval.unshift(i);
+      });
+      // Remove powerups that are off-screen or have been destroyed
+      markedForRemoval.forEach(function(index){
+        powerups.splice(index, 1);
+      });      
+
       // Update enemy shots
       var markedForRemoval = [];
       enemyShots.forEach(function(shot, i){
@@ -289,6 +301,7 @@ function update(elapsedTime) {
       // Check for enemy on player collisions
       // Check for shot on enemy collisions
       // Check for player on powerup collisions
+      check_powerups();
 
       // If player is dead, check lives count and act accordingly
       if(player.state == 'dead'){
@@ -333,6 +346,23 @@ function update(elapsedTime) {
   }
 }
 
+
+function check_powerups(){
+  for(var i = 0; i < powerups.length; i++){
+    var playerX = player.position.x + 23;
+    var playerY = player.position.y + 27;
+    var powerupX = powerups[i].position.x + 5;
+    var powerupY = powerups[i].position.y + 5;
+
+    if((Math.pow((player.position.y + 27) - (powerups[i].position.y + 21), 2) + 
+        Math.pow((player.position.x + 23) - (powerups[i].position.x + 20), 2) <= 
+        Math.pow(45, 2))){
+          player.pickupPowerup(powerups[i].type);
+          powerups.splice(i, 1);
+
+        }
+  }
+}
 
 function check_player_hit(){
   for(var i = 0; i < enemyShots.length; i++){
@@ -441,6 +471,11 @@ function render(elapsedTime, ctx) {
   // Render enemies
   for(var i = 0; i < enemies.length; i++){
     enemies[i].render(elapsedTime, ctx);
+  }
+
+  // Render powerups
+  for(var i = 0; i < powerups.length; i++){
+    powerups[i].render(elapsedTime, ctx);
   }
 
   // Render enemy shots
@@ -557,7 +592,7 @@ function buildLevel(){
   waitingPowerups = [];
   switch(curLevel){
     case 0:
-      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 1));
+      waitingPowerups.push(new Powerup({x: 400, y: -50}, 100, 1));
       waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4));
       waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 3));
       break;

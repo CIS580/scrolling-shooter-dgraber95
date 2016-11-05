@@ -27,8 +27,8 @@ function Powerup(position, startTime, type) {
     this.remove = false;
     this.imgWidth = 20;
     this.imgHeight = 21;
-    this.width = 1.5*this.imgWidth;
-    this.height = 1.5*this.imgHeight;
+    this.width = 2*this.imgWidth;
+    this.height = 2*this.imgHeight;
     this.radius = this.width/2;
 }
 
@@ -54,7 +54,7 @@ Powerup.prototype.update = function(time) {
  */
 Powerup.prototype.render = function(time, ctx) {
     ctx.drawImage(this.image,
-                  this.imgWidth*this.frame, 0, this.imgWidth, this.imgHeight,
+                  0, 0, this.imgWidth, this.imgHeight,
                   this.position.x, this.position.y, this.width, this.height
                   );  
 }
