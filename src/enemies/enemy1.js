@@ -4,7 +4,9 @@ const SPEED = 5;
 const MS_PER_FRAME = 1000/16;
 
 const EnemyShot = require('../shots/enemy_shot');
+const Explosion = require('../explosion');
 
+var explosion_colors = ['105,99,89,', '240,46,46,', '255,175,46,'];
 /**
  * @module exports the Enemy1 class
  */
@@ -16,7 +18,7 @@ module.exports = exports = Enemy1;
  * Creates a new enemy1 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy1(position, startTime, level, enemyShots) {
+function Enemy1(position, startTime, level, enemyShots, explosions) {
     this.level = level;
     this.startTime = startTime;
     this.worldWidth = 850;
@@ -35,6 +37,7 @@ function Enemy1(position, startTime, level, enemyShots) {
     this.width = 2*this.imgWidth;
     this.height = 2*this.imgHeight;
     this.enemyShots = enemyShots;
+    this.explosions = explosions;    
     this.shotWait = 1500 - 150*this.level;
     this.shotTimer = this.shotWait;
 }
@@ -72,6 +75,16 @@ Enemy1.prototype.update = function(time, playerPos) {
       this.position.y < -50 || this.position.y > this.worldHeight + 50){
       this.remove = true;;
     }
+}
+
+/**
+ * @function
+ */
+Enemy1.prototype.struck = function() {
+    this.explosions.push(new Explosion({x: this.position.x + this.imgWidth,
+                                        y: this.position.y + this.imgHeight}, 
+                                        explosion_colors));
+    this.remove = true;                                        
 }
 
 /**

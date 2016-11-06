@@ -200,6 +200,11 @@ Player.prototype.update = function(elapsedTime, input) {
  * @param {CanvasRenderingContext2D} ctx
  */
 Player.prototype.render = function(elapsedTime, ctx) {
+  // Render shots
+  for(var i = 0; i < this.shots.length; i++){
+    this.shots[i].render(elapsedTime, ctx);
+  }
+  
   var offset = this.angle * 21;
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
@@ -219,10 +224,6 @@ Player.prototype.render = function(elapsedTime, ctx) {
 
   ctx.restore();
 
-  // Render shots
-  for(var i = 0; i < this.shots.length; i++){
-    this.shots[i].render(elapsedTime, ctx);
-  }
 }
 
 /**

@@ -1,6 +1,7 @@
 "use strict";
 
 const SPEED = 5;
+const SmokeParticles = require('../smoke_particles');
 
 /**
  * @module exports the Shot3 class
@@ -24,6 +25,18 @@ function Shot3(position, level) {
   this.image = new Image();
   this.image.src = 'assets/using/shots/shots_3.png';
   this.remove = false;
+  this.smokeParticles = new SmokeParticles(400);  
+  this.draw_height = 28;
+  this.draw_width = 18;
+  switch(level){
+    case 0:
+      this.width = 14;
+      this.height = 26;
+      break;
+    case 1: 
+      this.width = 18;
+      this.height = 28;
+  }
 }
 
 
@@ -39,6 +52,11 @@ Shot3.prototype.update = function(time) {
      this.position.y < -50 || this.position.y > this.worldHeight){
     this.remove = true;;
   }
+  // emit smoke
+  this.smokeParticles.emit({x: this.position.x + 9, y: this.position.y + 50});  
+
+  // update smoke
+  this.smokeParticles.update(time);
 }
 
 /**
@@ -51,4 +69,6 @@ Shot3.prototype.render = function(time, ctx) {
     ctx.drawImage(this.image, 9*this.level ,0, 9, 14, 0, 20, 18, 28);  
     ctx.translate(-this.position.x, -this.position.y);
     
+  // Draw Smoke
+  this.smokeParticles.render(time, ctx);
 }

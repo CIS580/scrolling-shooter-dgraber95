@@ -24,6 +24,19 @@ function Shot1(position, level) {
   this.image = new Image();
   this.image.src = 'assets/using/shots/shots_1.png';
   this.remove = false;
+  this.draw_height = 26;
+  this.height = 26;
+  this.draw_width = 24;
+  switch(level){
+    case 0:
+      this.width = 8;
+      break;
+    case 1: 
+      this.width = 10;
+    case 2:
+    case 3:
+      this.width = 12;
+  }
 }
 
 
@@ -48,6 +61,6 @@ Shot1.prototype.update = function(time) {
  */
 Shot1.prototype.render = function(time, ctx) {
     ctx.translate(this.position.x, this.position.y);
-    ctx.drawImage(this.image, 12*this.level ,0, 12, 13, 0, 10, 24, 26);  
+    ctx.drawImage(this.image, 12*this.level ,0, 12, 13, 0, 10, this.draw_width, this.draw_height);  
     ctx.translate(-this.position.x, -this.position.y);
 }

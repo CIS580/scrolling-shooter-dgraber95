@@ -1,6 +1,6 @@
 "use strict";
 
-const READY_TIMER = 2400;
+const READY_TIMER = 0;
 
 /* Classes and Libraries */
 const Game = require('./game');
@@ -76,6 +76,9 @@ var enemiesDestroyed = 0;
 var levelDestroyed = 0;
 var score = 0;
 var levelScore = 0;
+// Colors used for explosions
+var explosion_colors = ['#696359', '#F02E2E', '#FFAF2E'];
+var explosions = [];
 buildLevel();
 
 
@@ -230,6 +233,18 @@ masterLoop(performance.now());
  * the number of milliseconds passed since the last frame.
  */
 function update(elapsedTime) {
+  var deferred_kills = [];
+	// update explosions
+	for ( var i = 0; i < explosions.length; i++ ) {
+		explosions[i].update();
+		if(explosions[i]._killed)
+			deferred_kills.unshift(i);
+	}
+	
+	// Remove any explosions that are completed
+	for ( var i = 0; i < deferred_kills.length; i++ ) {
+		explosions.splice(i, 1);
+	}
 
   switch(state){
     case 'ready':
@@ -312,6 +327,7 @@ function update(elapsedTime) {
 
       // Check for shot on player collisions
       check_player_hit();
+      check_enemies_hit();
       // Check for enemy on player collisions
       // Check for shot on enemy collisions
       // Check for player on powerup collisions
@@ -371,10 +387,28 @@ function check_powerups(){
     if((Math.pow((player.position.y + 27) - (powerups[i].position.y + 21), 2) + 
         Math.pow((player.position.x + 23) - (powerups[i].position.x + 20), 2) <= 
         Math.pow(45, 2))){
-          player.pickupPowerup(powerups[i].type);
-          powerups.splice(i, 1);
+      player.pickupPowerup(powerups[i].type);
+      powerups[i].remove = true;;
+    }
+  }
+}
 
-        }
+
+function check_enemies_hit(){
+  for(var i = 0; i < player.shots.length; i++){
+    for(var j = 0; j < enemies.length; j++){
+      var enemy = enemies[j];
+      var shot = player.shots[i];
+
+      if(!(shot.position.x + shot.draw_width/2 + shot.width/2 < enemy.position.x ||
+        shot.position.x + shot.draw_width/2 - shot.width/2> enemy.position.x + enemy.width ||
+        shot.position.y + shot.draw_height/2 - shot.height/2 > enemy.position.y + enemy.height - 15||
+        shot.position.y + shot.draw_height/2 + shot.height/2 < enemy.position.y))
+      {
+          player.shots[i].remove = true;;
+          enemy.struck();
+      }
+    }
   }
 }
 
@@ -390,7 +424,7 @@ function check_player_hit(){
        shotY + 5 < playerY - 25 ||
        shotY - 5 > playerY + 25))
     {
-        enemyShots.splice(i, 1);
+        enemyShots[i].remove = true;;
         player.struck(2);
     }
   }
@@ -492,6 +526,11 @@ function render(elapsedTime, ctx) {
   for(var i = 0; i < enemies.length; i++){
     enemies[i].render(elapsedTime, ctx);
   }
+
+	// Render explosions
+	for ( var i = 0; i < explosions.length; i++ ) {
+		explosions[i].render(elapsedTime, ctx);
+	}
 
   // Render powerups
   for(var i = 0; i < powerups.length; i++){
@@ -613,21 +652,21 @@ function buildLevel(){
   waitingPowerups = [];
   switch(curLevel){
     case 0:
-      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 1));
-      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4));
-      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 3));
+      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 1, explosions));
+      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4, explosions));
+      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 3, explosions));
       break;
 
     case 1:
-      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 4));
-      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 2));
-      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1));
+      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 4, explosions));
+      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 2, explosions));
+      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1, explosions));
       break;
 
     case 2:
-      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 3));
-      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4));
-      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1));    
+      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 3, explosions));
+      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4, explosions));
+      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1, explosions));    
       break;
 
     default:
@@ -641,53 +680,53 @@ function buildLevel(){
   for(var k = 0; k < 4; k++){
     for(var i = 0; i < 5; i++){
       for(var j =0; j < 3; j++){
-        waitingEnemies.push(new Enemy1({x: 200 + 100*i, y: -50}, 300 + 100*i + 10*j + 1000*k, curLevel, enemyShots));
+        waitingEnemies.push(new Enemy1({x: 200 + 100*i, y: -50}, 300 + 100*i + 10*j + 1000*k, curLevel, enemyShots, explosions));
       }
     }
   }
 
   // Enemy 2
-    // waitingEnemies.push(new Enemy2({x: 650, y: 100}, 0, curLevel, enemyShots))
-    // waitingEnemies.push(new Enemy2({x: 300, y: 300}, 0, curLevel, enemyShots))
-    // waitingEnemies.push(new Enemy2({x: 500, y: 550}, 0, curLevel, enemyShots))
+    // waitingEnemies.push(new Enemy2({x: 650, y: 100}, 0, curLevel, enemyShots, explosions))
+    // waitingEnemies.push(new Enemy2({x: 300, y: 300}, 0, curLevel, enemyShots, explosions))
+    // waitingEnemies.push(new Enemy2({x: 500, y: 550}, 0, curLevel, enemyShots, explosions))
   var multiplier = 1440;
   for(var i = 0; i < 3; i++){
-    waitingEnemies.push(new Enemy2({x: 650, y: -100}, multiplier*i + 115, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 480, y: -50}, multiplier*i + 170, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 100, y: -50}, multiplier*i + 200, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 400, y: -50}, multiplier*i + 390, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 430, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 590, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 300, y: -50}, multiplier*i + 590, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 700, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 650, y: -50}, multiplier*i + 750, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 270, y: -50}, multiplier*i + 800, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 850, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 950, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 1000, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 200, y: -50}, multiplier*i + 1050, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 1100, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 650, y: -100}, multiplier*i + 115, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 480, y: -50}, multiplier*i + 170, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 100, y: -50}, multiplier*i + 200, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 400, y: -50}, multiplier*i + 390, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 430, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 590, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 300, y: -50}, multiplier*i + 590, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 700, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 650, y: -50}, multiplier*i + 750, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 270, y: -50}, multiplier*i + 800, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 850, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 950, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 1000, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 200, y: -50}, multiplier*i + 1050, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 1100, curLevel, enemyShots, explosions))
   }
 
   // Enemy 3
   var direction = 1;
   for(var i = 0; i < 8; i++){
-    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 100, i%2+1, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 100, i%2+1, curLevel, enemyShots, explosions))
     direction *= -1;
   }
   for(var i = 0; i < 8; i++){
-    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 2800, i%2+1, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 2800, i%2+1, curLevel, enemyShots, explosions))
     direction *= -1;
   }
   for(var i = 0; i < 8; i++){
-    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 3800, i%2+1, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 3800, i%2+1, curLevel, enemyShots, explosions))
     direction *= -1;
   }    
   for(var i = 0; i < 6; i++){
-    waitingEnemies.push(new Enemy3({x: 60 + 130*i, y: -50}, 900 + 20*i, 0, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 1700 + 50*i, 0, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 2000 + 50*i, 0, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 3000 + 50*i, 0, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy3({x: 60 + 130*i, y: -50}, 900 + 20*i, 0, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 1700 + 50*i, 0, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 2000 + 50*i, 0, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 3000 + 50*i, 0, curLevel, enemyShots, explosions))
   }  
 
 
@@ -695,16 +734,16 @@ function buildLevel(){
   if(curLevel >= 2)
   {
     for(var i = 0; i < 5; i++){
-      waitingEnemies.push(new Enemy4({x: -50, y: -50}, 600 +  20*i, 1, curLevel, enemyShots))
+      waitingEnemies.push(new Enemy4({x: -50, y: -50}, 600 +  20*i, 1, curLevel, enemyShots, explosions))
     }
     for(var j = 0; j < 4; j++){
       for(var i = 0; i < 5; i++){
-        waitingEnemies.push(new Enemy4({x: -50, y: -50}, 1000 + 1000*j +  20*i, 1, curLevel, enemyShots))
+        waitingEnemies.push(new Enemy4({x: -50, y: -50}, 1000 + 1000*j +  20*i, 1, curLevel, enemyShots, explosions))
       }
     }
     for(var j = 0; j < 3; j++){
       for(var i = 0; i < 5; i++){
-        waitingEnemies.push(new Enemy4({x: 860, y: -50}, 1100 +  1100*j +  20*i, -1, curLevel, enemyShots))
+        waitingEnemies.push(new Enemy4({x: 860, y: -50}, 1100 +  1100*j +  20*i, -1, curLevel, enemyShots, explosions))
       }  
     }
   }  
@@ -714,10 +753,10 @@ function buildLevel(){
   if(curLevel >= 2)
   {  
     for(var i = 0; i < 5; i++){
-      waitingEnemies.push(new Enemy5({x: 10, y: -50}, 1100 + 30*i, 1, curLevel, enemyShots))
+      waitingEnemies.push(new Enemy5({x: 10, y: -50}, 1100 + 30*i, 1, curLevel, enemyShots, explosions))
     }
     for(var i = 0; i < 5; i++){
-      waitingEnemies.push(new Enemy5({x: 800, y: -50}, 2800 + 30*i, -1, curLevel, enemyShots))
+      waitingEnemies.push(new Enemy5({x: 800, y: -50}, 2800 + 30*i, -1, curLevel, enemyShots, explosions))
     }  
   }
 

@@ -25,6 +25,24 @@ function Shot4(position, direction, level) {
   this.image = new Image();
   this.image.src = 'assets/using/shots/shots_4.png';
   this.remove = false;
+  this.draw_height = 20;
+  this.draw_width = 28;  
+  switch(level){
+    case 0: 
+      this.width = 14;
+      this.height = 14;
+      break;
+
+    case 1:
+      this.width = 24;
+      this.height = 18;
+      break;
+
+    case 2:
+      this.width = 28;
+      this.height = 20;
+      break;
+  }
 }
 
 
@@ -49,7 +67,7 @@ Shot4.prototype.update = function(time) {
  */
 Shot4.prototype.render = function(time, ctx) {
     ctx.translate(this.position.x, this.position.y);
-    ctx.drawImage(this.image, 28*this.level + 7 + 7*this.direction ,0, 14, 10, 0, 20, 28, 20);  
+    ctx.drawImage(this.image, 28*this.level + 7 + 7*this.direction ,0, 14, 10, 0, 20, this.draw_width, this.draw_height );  
     ctx.translate(-this.position.x, -this.position.y);
 
 }

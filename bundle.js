@@ -1,7 +1,7 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 "use strict";
 
-const READY_TIMER = 2400;
+const READY_TIMER = 0;
 
 /* Classes and Libraries */
 const Game = require('./game');
@@ -77,6 +77,9 @@ var enemiesDestroyed = 0;
 var levelDestroyed = 0;
 var score = 0;
 var levelScore = 0;
+// Colors used for explosions
+var explosion_colors = ['#696359', '#F02E2E', '#FFAF2E'];
+var explosions = [];
 buildLevel();
 
 
@@ -231,6 +234,18 @@ masterLoop(performance.now());
  * the number of milliseconds passed since the last frame.
  */
 function update(elapsedTime) {
+  var deferred_kills = [];
+	// update explosions
+	for ( var i = 0; i < explosions.length; i++ ) {
+		explosions[i].update();
+		if(explosions[i]._killed)
+			deferred_kills.unshift(i);
+	}
+	
+	// Remove any explosions that are completed
+	for ( var i = 0; i < deferred_kills.length; i++ ) {
+		explosions.splice(i, 1);
+	}
 
   switch(state){
     case 'ready':
@@ -313,6 +328,7 @@ function update(elapsedTime) {
 
       // Check for shot on player collisions
       check_player_hit();
+      check_enemies_hit();
       // Check for enemy on player collisions
       // Check for shot on enemy collisions
       // Check for player on powerup collisions
@@ -372,10 +388,28 @@ function check_powerups(){
     if((Math.pow((player.position.y + 27) - (powerups[i].position.y + 21), 2) + 
         Math.pow((player.position.x + 23) - (powerups[i].position.x + 20), 2) <= 
         Math.pow(45, 2))){
-          player.pickupPowerup(powerups[i].type);
-          powerups.splice(i, 1);
+      player.pickupPowerup(powerups[i].type);
+      powerups[i].remove = true;;
+    }
+  }
+}
 
-        }
+
+function check_enemies_hit(){
+  for(var i = 0; i < player.shots.length; i++){
+    for(var j = 0; j < enemies.length; j++){
+      var enemy = enemies[j];
+      var shot = player.shots[i];
+
+      if(!(shot.position.x + shot.draw_width/2 + shot.width/2 < enemy.position.x ||
+        shot.position.x + shot.draw_width/2 - shot.width/2> enemy.position.x + enemy.width ||
+        shot.position.y + shot.draw_height/2 - shot.height/2 > enemy.position.y + enemy.height - 15||
+        shot.position.y + shot.draw_height/2 + shot.height/2 < enemy.position.y))
+      {
+          player.shots[i].remove = true;;
+          enemy.struck();
+      }
+    }
   }
 }
 
@@ -391,7 +425,7 @@ function check_player_hit(){
        shotY + 5 < playerY - 25 ||
        shotY - 5 > playerY + 25))
     {
-        enemyShots.splice(i, 1);
+        enemyShots[i].remove = true;;
         player.struck(2);
     }
   }
@@ -493,6 +527,11 @@ function render(elapsedTime, ctx) {
   for(var i = 0; i < enemies.length; i++){
     enemies[i].render(elapsedTime, ctx);
   }
+
+	// Render explosions
+	for ( var i = 0; i < explosions.length; i++ ) {
+		explosions[i].render(elapsedTime, ctx);
+	}
 
   // Render powerups
   for(var i = 0; i < powerups.length; i++){
@@ -614,21 +653,21 @@ function buildLevel(){
   waitingPowerups = [];
   switch(curLevel){
     case 0:
-      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 1));
-      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4));
-      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 3));
+      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 1, explosions));
+      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4, explosions));
+      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 3, explosions));
       break;
 
     case 1:
-      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 4));
-      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 2));
-      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1));
+      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 4, explosions));
+      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 2, explosions));
+      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1, explosions));
       break;
 
     case 2:
-      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 3));
-      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4));
-      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1));    
+      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 3, explosions));
+      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4, explosions));
+      waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1, explosions));    
       break;
 
     default:
@@ -642,53 +681,53 @@ function buildLevel(){
   for(var k = 0; k < 4; k++){
     for(var i = 0; i < 5; i++){
       for(var j =0; j < 3; j++){
-        waitingEnemies.push(new Enemy1({x: 200 + 100*i, y: -50}, 300 + 100*i + 10*j + 1000*k, curLevel, enemyShots));
+        waitingEnemies.push(new Enemy1({x: 200 + 100*i, y: -50}, 300 + 100*i + 10*j + 1000*k, curLevel, enemyShots, explosions));
       }
     }
   }
 
   // Enemy 2
-    // waitingEnemies.push(new Enemy2({x: 650, y: 100}, 0, curLevel, enemyShots))
-    // waitingEnemies.push(new Enemy2({x: 300, y: 300}, 0, curLevel, enemyShots))
-    // waitingEnemies.push(new Enemy2({x: 500, y: 550}, 0, curLevel, enemyShots))
+    // waitingEnemies.push(new Enemy2({x: 650, y: 100}, 0, curLevel, enemyShots, explosions))
+    // waitingEnemies.push(new Enemy2({x: 300, y: 300}, 0, curLevel, enemyShots, explosions))
+    // waitingEnemies.push(new Enemy2({x: 500, y: 550}, 0, curLevel, enemyShots, explosions))
   var multiplier = 1440;
   for(var i = 0; i < 3; i++){
-    waitingEnemies.push(new Enemy2({x: 650, y: -100}, multiplier*i + 115, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 480, y: -50}, multiplier*i + 170, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 100, y: -50}, multiplier*i + 200, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 400, y: -50}, multiplier*i + 390, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 430, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 590, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 300, y: -50}, multiplier*i + 590, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 700, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 650, y: -50}, multiplier*i + 750, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 270, y: -50}, multiplier*i + 800, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 850, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 950, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 1000, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 200, y: -50}, multiplier*i + 1050, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 1100, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy2({x: 650, y: -100}, multiplier*i + 115, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 480, y: -50}, multiplier*i + 170, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 100, y: -50}, multiplier*i + 200, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 400, y: -50}, multiplier*i + 390, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 430, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 590, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 300, y: -50}, multiplier*i + 590, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 700, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 650, y: -50}, multiplier*i + 750, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 270, y: -50}, multiplier*i + 800, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 850, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 700, y: -50}, multiplier*i + 950, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 50, y: -50}, multiplier*i + 1000, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 200, y: -50}, multiplier*i + 1050, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy2({x: 150, y: -50}, multiplier*i + 1100, curLevel, enemyShots, explosions))
   }
 
   // Enemy 3
   var direction = 1;
   for(var i = 0; i < 8; i++){
-    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 100, i%2+1, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 100, i%2+1, curLevel, enemyShots, explosions))
     direction *= -1;
   }
   for(var i = 0; i < 8; i++){
-    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 2800, i%2+1, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 2800, i%2+1, curLevel, enemyShots, explosions))
     direction *= -1;
   }
   for(var i = 0; i < 8; i++){
-    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 3800, i%2+1, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy3({x: (405 - 405*direction) - (12 + 12*direction) , y: 100 + i*60}, 3800, i%2+1, curLevel, enemyShots, explosions))
     direction *= -1;
   }    
   for(var i = 0; i < 6; i++){
-    waitingEnemies.push(new Enemy3({x: 60 + 130*i, y: -50}, 900 + 20*i, 0, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 1700 + 50*i, 0, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 2000 + 50*i, 0, curLevel, enemyShots))
-    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 3000 + 50*i, 0, curLevel, enemyShots))
+    waitingEnemies.push(new Enemy3({x: 60 + 130*i, y: -50}, 900 + 20*i, 0, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 1700 + 50*i, 0, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 2000 + 50*i, 0, curLevel, enemyShots, explosions))
+    waitingEnemies.push(new Enemy3({x: 400, y: -50}, 3000 + 50*i, 0, curLevel, enemyShots, explosions))
   }  
 
 
@@ -696,16 +735,16 @@ function buildLevel(){
   if(curLevel >= 2)
   {
     for(var i = 0; i < 5; i++){
-      waitingEnemies.push(new Enemy4({x: -50, y: -50}, 600 +  20*i, 1, curLevel, enemyShots))
+      waitingEnemies.push(new Enemy4({x: -50, y: -50}, 600 +  20*i, 1, curLevel, enemyShots, explosions))
     }
     for(var j = 0; j < 4; j++){
       for(var i = 0; i < 5; i++){
-        waitingEnemies.push(new Enemy4({x: -50, y: -50}, 1000 + 1000*j +  20*i, 1, curLevel, enemyShots))
+        waitingEnemies.push(new Enemy4({x: -50, y: -50}, 1000 + 1000*j +  20*i, 1, curLevel, enemyShots, explosions))
       }
     }
     for(var j = 0; j < 3; j++){
       for(var i = 0; i < 5; i++){
-        waitingEnemies.push(new Enemy4({x: 860, y: -50}, 1100 +  1100*j +  20*i, -1, curLevel, enemyShots))
+        waitingEnemies.push(new Enemy4({x: 860, y: -50}, 1100 +  1100*j +  20*i, -1, curLevel, enemyShots, explosions))
       }  
     }
   }  
@@ -715,10 +754,10 @@ function buildLevel(){
   if(curLevel >= 2)
   {  
     for(var i = 0; i < 5; i++){
-      waitingEnemies.push(new Enemy5({x: 10, y: -50}, 1100 + 30*i, 1, curLevel, enemyShots))
+      waitingEnemies.push(new Enemy5({x: 10, y: -50}, 1100 + 30*i, 1, curLevel, enemyShots, explosions))
     }
     for(var i = 0; i < 5; i++){
-      waitingEnemies.push(new Enemy5({x: 800, y: -50}, 2800 + 30*i, -1, curLevel, enemyShots))
+      waitingEnemies.push(new Enemy5({x: 800, y: -50}, 2800 + 30*i, -1, curLevel, enemyShots, explosions))
     }  
   }
 
@@ -738,7 +777,7 @@ function renderGUI(elapsedTime, ctx) {
   // TODO: Render the GUI
 }
 
-},{"./bullet_pool":2,"./camera":3,"./enemies/enemy1":4,"./enemies/enemy2":5,"./enemies/enemy3":6,"./enemies/enemy4":7,"./enemies/enemy5":8,"./game":9,"./player":10,"./powerup":11,"./vector":17}],2:[function(require,module,exports){
+},{"./bullet_pool":2,"./camera":3,"./enemies/enemy1":4,"./enemies/enemy2":5,"./enemies/enemy3":6,"./enemies/enemy4":7,"./enemies/enemy5":8,"./game":10,"./player":12,"./powerup":13,"./vector":20}],2:[function(require,module,exports){
 "use strict";
 
 /**
@@ -905,14 +944,16 @@ Camera.prototype.toWorldCoordinates = function(screenCoordinates) {
   return Vector.add(screenCoordinates, this);
 }
 
-},{"./vector":17}],4:[function(require,module,exports){
+},{"./vector":20}],4:[function(require,module,exports){
 "use strict";
 
 const SPEED = 5;
 const MS_PER_FRAME = 1000/16;
 
 const EnemyShot = require('../shots/enemy_shot');
+const Explosion = require('../explosion');
 
+var explosion_colors = ['105,99,89,', '240,46,46,', '255,175,46,'];
 /**
  * @module exports the Enemy1 class
  */
@@ -924,7 +965,7 @@ module.exports = exports = Enemy1;
  * Creates a new enemy1 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy1(position, startTime, level, enemyShots) {
+function Enemy1(position, startTime, level, enemyShots, explosions) {
     this.level = level;
     this.startTime = startTime;
     this.worldWidth = 850;
@@ -943,6 +984,7 @@ function Enemy1(position, startTime, level, enemyShots) {
     this.width = 2*this.imgWidth;
     this.height = 2*this.imgHeight;
     this.enemyShots = enemyShots;
+    this.explosions = explosions;    
     this.shotWait = 1500 - 150*this.level;
     this.shotTimer = this.shotWait;
 }
@@ -983,6 +1025,16 @@ Enemy1.prototype.update = function(time, playerPos) {
 }
 
 /**
+ * @function
+ */
+Enemy1.prototype.struck = function() {
+    this.explosions.push(new Explosion({x: this.position.x + this.imgWidth,
+                                        y: this.position.y + this.imgHeight}, 
+                                        explosion_colors));
+    this.remove = true;                                        
+}
+
+/**
  * @function renders the enemy1 into the provided context
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  * {CanvasRenderingContext2D} ctx the context to render into
@@ -994,13 +1046,16 @@ Enemy1.prototype.render = function(time, ctx) {
                   );  
 }
 
-},{"../shots/enemy_shot":12}],5:[function(require,module,exports){
+},{"../explosion":9,"../shots/enemy_shot":14}],5:[function(require,module,exports){
 "use strict";
 
 const MOVEMENT = 3;
 const MS_PER_FRAME = 1000/5;
 
 const EnemyShot = require('../shots/enemy_shot');
+const Explosion = require('../explosion');
+
+var explosion_colors = ['105,99,89,', '240,46,46,', '255,175,46,'];
 
 /**
  * @module exports the Enemy2 class
@@ -1013,7 +1068,7 @@ module.exports = exports = Enemy2;
  * Creates a new enemy2 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy2(position, startTime, level, enemyShots) {
+function Enemy2(position, startTime, level, enemyShots, explosions) {
     this.level = level;
     this.startTime = startTime;
     this.worldWidth = 850;
@@ -1033,8 +1088,10 @@ function Enemy2(position, startTime, level, enemyShots) {
     this.height = 2.25*this.imgHeight;
     this.state = 'default';
     this.enemyShots = enemyShots;
+    this.explosions = explosions;
     this.shotWait = 1500 - 150*this.level;
     this.shotTimer = this.shotWait;
+    this.exploded = false;
 }
 
 
@@ -1049,8 +1106,8 @@ Enemy2.prototype.update = function(time, playerPos) {
             this.frameTimer = MS_PER_FRAME;
             this.frame++;
             if(this.frame >= 3){
-                this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
-                                                    y: this.position.y + 10},
+                this.enemyShots.push(new EnemyShot({x: this.position.x - 8,
+                                                    y: this.position.y - 1},
                                                     playerPos));
                 this.state = 'default';
                 this.frame = 0;
@@ -1079,6 +1136,18 @@ Enemy2.prototype.update = function(time, playerPos) {
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  * {CanvasRenderingContext2D} ctx the context to render into
  */
+Enemy2.prototype.struck = function() {
+    this.explosions.push(new Explosion({x: this.position.x + this.imgWidth,
+                                        y: this.position.y + this.imgHeight}, 
+                                        explosion_colors));
+    this.remove = true;                                        
+}
+
+/**
+ * @function renders the enemy2 into the provided context
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ * {CanvasRenderingContext2D} ctx the context to render into
+ */
 Enemy2.prototype.render = function(time, ctx) {
     ctx.drawImage(this.image,
                   this.imgWidth*this.frame, 0, this.imgWidth, this.imgHeight,
@@ -1086,13 +1155,15 @@ Enemy2.prototype.render = function(time, ctx) {
                   );  
 }
 
-},{"../shots/enemy_shot":12}],6:[function(require,module,exports){
+},{"../explosion":9,"../shots/enemy_shot":14}],6:[function(require,module,exports){
 "use strict";
 
 const SPEED = 4;
 
 const EnemyShot = require('../shots/enemy_shot');
+const Explosion = require('../explosion');
 
+var explosion_colors = ['105,99,89,', '240,46,46,', '255,175,46,'];
 /**
  * @module exports the Enemy3 class
  */
@@ -1104,7 +1175,7 @@ module.exports = exports = Enemy3;
  * Creates a new enemy3 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy3(position, startTime, type, level, enemyShots) {
+function Enemy3(position, startTime, type, level, enemyShots, explosions) {
     this.level = level;    
     this.startTime = startTime;
     this.worldWidth = 850;
@@ -1122,6 +1193,7 @@ function Enemy3(position, startTime, type, level, enemyShots) {
     this.width = 2*this.imgWidth;
     this.height = 2*this.imgHeight;
     this.enemyShots = enemyShots;
+    this.explosions = explosions;    
     this.shotWait = 1500 - 150*this.level;
     this.shotTimer = this.shotWait;
 }
@@ -1161,6 +1233,16 @@ Enemy3.prototype.update = function(time, playerPos) {
 }
 
 /**
+ * @function
+ */
+Enemy3.prototype.struck = function() {
+    this.explosions.push(new Explosion({x: this.position.x + this.imgWidth,
+                                        y: this.position.y + this.imgHeight}, 
+                                        explosion_colors));
+    this.remove = true;                                        
+}
+
+/**
  * @function renders the enemy3 into the provided context
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  * {CanvasRenderingContext2D} ctx the context to render into
@@ -1172,13 +1254,15 @@ Enemy3.prototype.render = function(time, ctx) {
                   );  
 }
 
-},{"../shots/enemy_shot":12}],7:[function(require,module,exports){
+},{"../explosion":9,"../shots/enemy_shot":14}],7:[function(require,module,exports){
 "use strict";
 
 const MS_PER_FRAME = 1000/8;
 
 const EnemyShot = require('../shots/enemy_shot');
+const Explosion = require('../explosion');
 
+var explosion_colors = ['105,99,89,', '240,46,46,', '255,175,46,'];
 /**
  * @module exports the Enemy4 class
  */
@@ -1190,7 +1274,7 @@ module.exports = exports = Enemy4;
  * Creates a new enemy4 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy4(position, startTime, acceleration, level, enemyShots) {
+function Enemy4(position, startTime, acceleration, level, enemyShots, explosions) {
     this.level = level;    
     this.startTime = startTime;
     this.worldWidth = 850;
@@ -1214,6 +1298,7 @@ function Enemy4(position, startTime, acceleration, level, enemyShots) {
     this.width = 2*this.imgWidth;
     this.height = 2*this.imgHeight;
     this.enemyShots = enemyShots;
+    this.explosions = explosions;    
     this.shotWait = 1500 - 150*this.level;
     this.shotTimer = this.shotWait;
 }
@@ -1256,6 +1341,17 @@ Enemy4.prototype.update = function(time, playerPos) {
     }
 }
 
+
+/**
+ * @function
+ */
+Enemy4.prototype.struck = function() {
+    this.explosions.push(new Explosion({x: this.position.x + this.imgWidth,
+                                        y: this.position.y + this.imgHeight}, 
+                                        explosion_colors));
+    this.remove = true;                                        
+}
+
 /**
  * @function renders the enemy4 into the provided context
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
@@ -1268,14 +1364,16 @@ Enemy4.prototype.render = function(time, ctx) {
                   );  
 }
 
-},{"../shots/enemy_shot":12}],8:[function(require,module,exports){
+},{"../explosion":9,"../shots/enemy_shot":14}],8:[function(require,module,exports){
 "use strict";
 
 const MS_PER_FRAME = 1000/16;
 const DIST_TO_SWITCH = 150;
 
 const EnemyShot = require('../shots/enemy_shot');
+const Explosion = require('../explosion');
 
+var explosion_colors = ['105,99,89,', '240,46,46,', '255,175,46,'];
 /**
  * @module exports the Enemy5 class
  */
@@ -1287,7 +1385,7 @@ module.exports = exports = Enemy5;
  * Creates a new enemy5 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy5(position, startTime, direction, level, enemyShots) {
+function Enemy5(position, startTime, direction, level, enemyShots, explosions) {
     this.level = level;
     this.startTime = startTime;
     this.worldWidth = 850;
@@ -1314,6 +1412,7 @@ function Enemy5(position, startTime, direction, level, enemyShots) {
     this.shotWait = 1500 - 150*this.level;
     this.shotTimer = this.shotWait;
     this.enemyShots = enemyShots;
+    this.explosions = explosions;    
 }
 
 
@@ -1361,6 +1460,16 @@ Enemy5.prototype.update = function(time, playerPos) {
 }
 
 /**
+ * @function
+ */
+Enemy5.prototype.struck = function() {
+    this.explosions.push(new Explosion({x: this.position.x + this.imgWidth,
+                                        y: this.position.y + this.imgHeight}, 
+                                        explosion_colors));
+    this.remove = true;                                        
+}
+
+/**
  * @function renders the enemy5 into the provided context
  * {DOMHighResTimeStamp} time the elapsed time since the last frame
  * {CanvasRenderingContext2D} ctx the context to render into
@@ -1372,7 +1481,122 @@ Enemy5.prototype.render = function(time, ctx) {
                   );  
 }
 
-},{"../shots/enemy_shot":12}],9:[function(require,module,exports){
+},{"../explosion":9,"../shots/enemy_shot":14}],9:[function(require,module,exports){
+"use strict";
+
+var fHz = 1000/60; // The update frequency
+
+const Particle = require('./particle');
+
+/**
+ * @module exports the Explosion class
+ */
+module.exports = exports = Explosion;
+
+
+/**
+ * @constructor Explosion
+ * Creates a new explosion object
+ * @param {Postition} position object specifying an x and y
+ */
+function Explosion(position, colors) {
+	this.particles = [];    // List of particles in the explosion
+	this._killed = false;   // flag indicating if the explosion is done
+
+    for ( var i = 0; i < colors.length; i++ ) {
+        this.createExplosion({x: position.x, y: position.y}, colors[i]);
+    }
+}
+
+/**
+ * @function 
+ */
+Explosion.prototype.createExplosion = function(position, color) {
+    // Number of particles to use
+    var numParticles = 12;
+
+    // Particle size parameters
+    // Controls the size of the particle.
+    var minSize = 5;
+    var maxSize = 20;
+
+    // Particle speed parameters
+    // Controls how quickly the particle
+    // speeds outwards from the blast center.
+    var minSpeed = 60.0;
+    var maxSpeed = 300.0;
+
+    // Scaling speed parameters
+    // Controls how quickly the particle shrinks.
+    var minScaleSpeed = 1.0;
+    var maxScaleSpeed = 2.0;
+
+    // Uniformly distribute the particles in a circle
+    for ( var angle=0; angle<360; angle += Math.round(360/numParticles) ) {
+        
+        // Create a new particle
+        var speed = Math.randomFloat(minSpeed, maxSpeed);
+        var particle = new Particle({x: position.x, y: position.y},                   // Position
+                                    Math.randomFloat(minSize, maxSize), // Radius
+                                    color,                              // Color
+                                    Math.randomFloat(minScaleSpeed, maxScaleSpeed), // Scale speed
+                                    {x: speed * Math.cos(angle * Math.PI / 180.0),
+                                        y: speed * Math.sin(angle * Math.PI / 180.0)}   // Velocity
+                                    );
+
+        // Add the particle to the list of particles in the explosion
+        this.particles.push(particle);
+    }
+}
+
+
+/**
+ * @function updates the explosion object
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ */
+Explosion.prototype.update = function(time) {
+
+    var remove = [];
+    if (this.particles.length <= 0) {
+        this._killed = true;
+        return;	
+    }
+    
+    for (var i = 0; i < this.particles.length; i++){
+        this.particles[i].update();
+        if(this.particles[i].remove){
+            remove.unshift(i);
+        }
+    }
+
+    for(var i = 0; i < remove.length; i++){
+        this.particles.splice(i, 1);
+    }
+}
+
+
+/**
+ * @function renders the explosion into the provided context
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ * {CanvasRenderingContext2D} ctx the context to render into
+ */
+Explosion.prototype.render = function(time, ctx) {
+    for ( var i = 0; i < this.particles.length; i++) {
+        this.particles[i].render(time, ctx);
+    }
+}
+
+
+/*
+ * randomFloat
+ * Augments the Math library with a function
+ * to generate random float values between
+ * a given interval.
+ */
+Math.randomFloat = function(min, max){
+	return min + Math.random()*(max-min);
+};
+},{"./particle":11}],10:[function(require,module,exports){
 "use strict";
 
 /**
@@ -1430,7 +1654,75 @@ Game.prototype.loop = function(newTime) {
   this.frontCtx.drawImage(this.backBuffer, 0, 0);
 }
 
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
+"use strict";
+
+var fHz = 1000/60; // The update frequency
+
+/**
+ * @module exports the Particle class
+ */
+module.exports = exports = Particle;
+
+
+/**
+ * @constructor Particle
+ * Creates a new particle object
+ * @param {Postition} position object specifying an x and y
+ */
+function Particle(position, radius, color, scaleSpeed, velocity) {
+  	this.position = position;        // The coordinates of the particle.
+	this.radius = radius;               // The radius of the particle.
+	this.color = color;         // RGB color value of particle (hexadecimal notation).
+	this.scale = 1.0;               // Scaling value between 0.0 and 1.0, initialized to 1.0.
+	this.scaleSpeed = scaleSpeed;          // Amount per second to be deduced from the scale property.
+	this.velocity = velocity;   // Amount to be added per second to the particle’s position.
+    this.remove = false;
+}
+
+
+/**
+ * @function updates the particle object
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ */
+Particle.prototype.update = function(time) {
+    var ms = fHz;
+    
+    // Shrink the particle based on the scaleSpeed value
+    this.scale -= this.scaleSpeed * ms / 1000.0;
+
+    if (this.scale <= 0)
+    {
+        this.scale = 0;
+        this.remove = true;
+        return;
+    }
+    // moving away from explosion center
+    this.position.x += this.velocity.x * ms/1000.0;
+    this.position.y += this.velocity.y * ms/1000.0;
+}
+
+/**
+ * @function renders the particle into the provided context
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ * {CanvasRenderingContext2D} ctx the context to render into
+ */
+Particle.prototype.render = function(time, ctx) {
+    ctx.beginPath();
+    ctx.arc(
+      this.position.x,   // X position
+      this.position.y, // y position
+      this.radius*this.scale, // radius
+      0,
+      2*Math.PI
+    );
+    ctx.fillStyle = 'rgba(' + this.color + this.scale + ')';
+    ctx.fill();
+
+}
+
+
+},{}],12:[function(require,module,exports){
 "use strict";
 
 /* Classes and Libraries */
@@ -1633,6 +1925,11 @@ Player.prototype.update = function(elapsedTime, input) {
  * @param {CanvasRenderingContext2D} ctx
  */
 Player.prototype.render = function(elapsedTime, ctx) {
+  // Render shots
+  for(var i = 0; i < this.shots.length; i++){
+    this.shots[i].render(elapsedTime, ctx);
+  }
+  
   var offset = this.angle * 21;
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
@@ -1652,10 +1949,6 @@ Player.prototype.render = function(elapsedTime, ctx) {
 
   ctx.restore();
 
-  // Render shots
-  for(var i = 0; i < this.shots.length; i++){
-    this.shots[i].render(elapsedTime, ctx);
-  }
 }
 
 /**
@@ -1675,7 +1968,7 @@ Player.prototype.restart = function(restart) {
   this.shieldTimer = SHIELD_TIMER;
   this.state = 'ready';
 }
-},{"./shots/shot1":13,"./shots/shot2":14,"./shots/shot3":15,"./shots/shot4":16,"./vector":17}],11:[function(require,module,exports){
+},{"./shots/shot1":15,"./shots/shot2":16,"./shots/shot3":17,"./shots/shot4":18,"./vector":20}],13:[function(require,module,exports){
 "use strict";
 
 const SPEED = 3;
@@ -1737,7 +2030,7 @@ Powerup.prototype.render = function(time, ctx) {
                   );  
 }
 
-},{}],12:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 "use strict";
 
 const Vector = require('../vector');
@@ -1802,7 +2095,7 @@ EnemyShot.prototype.render = function(time, ctx) {
     ctx.drawImage(this.image, 0 ,0, 11, 11, this.position.x, this.position.y, 10, 10);  
 }
 
-},{"../vector":17}],13:[function(require,module,exports){
+},{"../vector":20}],15:[function(require,module,exports){
 "use strict";
 
 const SPEED = 8;
@@ -1829,6 +2122,19 @@ function Shot1(position, level) {
   this.image = new Image();
   this.image.src = 'assets/using/shots/shots_1.png';
   this.remove = false;
+  this.draw_height = 26;
+  this.height = 26;
+  this.draw_width = 24;
+  switch(level){
+    case 0:
+      this.width = 8;
+      break;
+    case 1: 
+      this.width = 10;
+    case 2:
+    case 3:
+      this.width = 12;
+  }
 }
 
 
@@ -1853,11 +2159,11 @@ Shot1.prototype.update = function(time) {
  */
 Shot1.prototype.render = function(time, ctx) {
     ctx.translate(this.position.x, this.position.y);
-    ctx.drawImage(this.image, 12*this.level ,0, 12, 13, 0, 10, 24, 26);  
+    ctx.drawImage(this.image, 12*this.level ,0, 12, 13, 0, 10, this.draw_width, this.draw_height);  
     ctx.translate(-this.position.x, -this.position.y);
 }
 
-},{}],14:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 "use strict";
 
 const SPEED = 8;
@@ -1913,10 +2219,11 @@ Shot2.prototype.render = function(time, ctx) {
     ctx.translate(-this.position.x, -this.position.y);
 }
 
-},{}],15:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 "use strict";
 
 const SPEED = 5;
+const SmokeParticles = require('../smoke_particles');
 
 /**
  * @module exports the Shot3 class
@@ -1940,6 +2247,18 @@ function Shot3(position, level) {
   this.image = new Image();
   this.image.src = 'assets/using/shots/shots_3.png';
   this.remove = false;
+  this.smokeParticles = new SmokeParticles(400);  
+  this.draw_height = 28;
+  this.draw_width = 18;
+  switch(level){
+    case 0:
+      this.width = 14;
+      this.height = 26;
+      break;
+    case 1: 
+      this.width = 18;
+      this.height = 28;
+  }
 }
 
 
@@ -1955,6 +2274,11 @@ Shot3.prototype.update = function(time) {
      this.position.y < -50 || this.position.y > this.worldHeight){
     this.remove = true;;
   }
+  // emit smoke
+  this.smokeParticles.emit({x: this.position.x + 9, y: this.position.y + 50});  
+
+  // update smoke
+  this.smokeParticles.update(time);
 }
 
 /**
@@ -1967,9 +2291,11 @@ Shot3.prototype.render = function(time, ctx) {
     ctx.drawImage(this.image, 9*this.level ,0, 9, 14, 0, 20, 18, 28);  
     ctx.translate(-this.position.x, -this.position.y);
     
+  // Draw Smoke
+  this.smokeParticles.render(time, ctx);
 }
 
-},{}],16:[function(require,module,exports){
+},{"../smoke_particles":19}],18:[function(require,module,exports){
 "use strict";
 
 const SPEED = 8;
@@ -1997,6 +2323,24 @@ function Shot4(position, direction, level) {
   this.image = new Image();
   this.image.src = 'assets/using/shots/shots_4.png';
   this.remove = false;
+  this.draw_height = 20;
+  this.draw_width = 28;  
+  switch(level){
+    case 0: 
+      this.width = 14;
+      this.height = 14;
+      break;
+
+    case 1:
+      this.width = 24;
+      this.height = 18;
+      break;
+
+    case 2:
+      this.width = 28;
+      this.height = 20;
+      break;
+  }
 }
 
 
@@ -2021,12 +2365,118 @@ Shot4.prototype.update = function(time) {
  */
 Shot4.prototype.render = function(time, ctx) {
     ctx.translate(this.position.x, this.position.y);
-    ctx.drawImage(this.image, 28*this.level + 7 + 7*this.direction ,0, 14, 10, 0, 20, 28, 20);  
+    ctx.drawImage(this.image, 28*this.level + 7 + 7*this.direction ,0, 14, 10, 0, 20, this.draw_width, this.draw_height );  
     ctx.translate(-this.position.x, -this.position.y);
 
 }
 
-},{}],17:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
+"use strict";
+
+/**
+ * @module SmokeParticles
+ * A class for managing a particle engine that
+ * emulates a smoke trail
+ */
+module.exports = exports = SmokeParticles;
+
+/**
+ * @constructor SmokeParticles
+ * Creates a SmokeParticles engine of the specified size
+ * @param {uint} size the maximum number of particles to exist concurrently
+ */
+function SmokeParticles(maxSize) {
+  this.pool = new Float32Array(3 * maxSize);
+  this.start = 0;
+  this.end = 0;
+  this.wrapped = false;
+  this.max = maxSize;
+}
+
+/**
+ * @function emit
+ * Adds a new particle at the given position
+ * @param {Vector} position
+*/
+SmokeParticles.prototype.emit = function(position) {
+  if(this.end != this.max) {
+    this.pool[3*this.end] = position.x;
+    this.pool[3*this.end+1] = position.y;
+    this.pool[3*this.end+2] = 0.0;
+    this.end++;
+  } else {
+    this.pool[3] = position.x;
+    this.pool[4] = position.y;
+    this.pool[5] = 0.0;
+    this.end = 1;
+  }
+}
+
+/**
+ * @function update
+ * Updates the particles
+ * @param {DOMHighResTimeStamp} elapsedTime
+ */
+SmokeParticles.prototype.update = function(elapsedTime) {
+  function updateParticle(i) {
+    this.pool[3*i+2] += elapsedTime;
+    if(this.pool[3*i+2] > 2000) this.start = i;
+  }
+  var i;
+  if(this.wrapped) {
+    for(i = 0; i < this.end; i++){
+      updateParticle.call(this, i);
+    }
+    for(i = this.start; i < this.max; i++){
+      updateParticle.call(this, i);
+    }
+  } else {
+    for(i = this.start; i < this.end; i++) {
+      updateParticle.call(this, i);
+    }
+  }
+}
+
+/**
+ * @function render
+ * Renders all bullets in our array.
+ * @param {DOMHighResTimeStamp} elapsedTime
+ * @param {CanvasRenderingContext2D} ctx
+ */
+SmokeParticles.prototype.render = function(elapsedTime, ctx) {
+  function renderParticle(i){
+    var alpha = 1 - (this.pool[3*i+2] / 1000);
+    var radius = 0.1 * this.pool[3*i+2];
+    if(radius > 5) radius = 5;
+    ctx.beginPath();
+    ctx.arc(
+      this.pool[3*i],   // X position
+      this.pool[3*i+1], // y position
+      radius, // radius
+      0,
+      2*Math.PI
+    );
+    ctx.fillStyle = 'rgba(160, 160, 160,' + alpha + ')';
+    ctx.fill();
+  }
+
+  // Render the particles individually
+  var i;
+  if(this.wrapped) {
+    for(i = 0; i < this.end; i++){
+      renderParticle.call(this, i);
+    }
+    for(i = this.start; i < this.max; i++){
+      renderParticle.call(this, i);
+    }
+  } else {
+    for(i = this.start; i < this.end; i++) {
+      renderParticle.call(this, i);
+    }
+  }
+}
+
+},{}],20:[function(require,module,exports){
 "use strict";
 
 /**

@@ -4,6 +4,9 @@ const MOVEMENT = 3;
 const MS_PER_FRAME = 1000/5;
 
 const EnemyShot = require('../shots/enemy_shot');
+const Explosion = require('../explosion');
+
+var explosion_colors = ['105,99,89,', '240,46,46,', '255,175,46,'];
 
 /**
  * @module exports the Enemy2 class
@@ -16,7 +19,7 @@ module.exports = exports = Enemy2;
  * Creates a new enemy2 object
  * @param {Postition} position object specifying an x and y
  */
-function Enemy2(position, startTime, level, enemyShots) {
+function Enemy2(position, startTime, level, enemyShots, explosions) {
     this.level = level;
     this.startTime = startTime;
     this.worldWidth = 850;
@@ -36,8 +39,10 @@ function Enemy2(position, startTime, level, enemyShots) {
     this.height = 2.25*this.imgHeight;
     this.state = 'default';
     this.enemyShots = enemyShots;
+    this.explosions = explosions;
     this.shotWait = 1500 - 150*this.level;
     this.shotTimer = this.shotWait;
+    this.exploded = false;
 }
 
 
@@ -52,8 +57,8 @@ Enemy2.prototype.update = function(time, playerPos) {
             this.frameTimer = MS_PER_FRAME;
             this.frame++;
             if(this.frame >= 3){
-                this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
-                                                    y: this.position.y + 10},
+                this.enemyShots.push(new EnemyShot({x: this.position.x - 8,
+                                                    y: this.position.y - 1},
                                                     playerPos));
                 this.state = 'default';
                 this.frame = 0;
@@ -75,6 +80,18 @@ Enemy2.prototype.update = function(time, playerPos) {
         this.position.y < -50 || this.position.y > this.worldHeight + 50){
         this.remove = true;;
     }
+}
+
+/**
+ * @function renders the enemy2 into the provided context
+ * {DOMHighResTimeStamp} time the elapsed time since the last frame
+ * {CanvasRenderingContext2D} ctx the context to render into
+ */
+Enemy2.prototype.struck = function() {
+    this.explosions.push(new Explosion({x: this.position.x + this.imgWidth,
+                                        y: this.position.y + this.imgHeight}, 
+                                        explosion_colors));
+    this.remove = true;                                        
 }
 
 /**
