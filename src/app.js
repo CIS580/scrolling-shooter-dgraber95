@@ -34,21 +34,35 @@ var input = {
 var player = new Player();
 var debugInput = true;
 var levels = [];
+var clouds = [];
+var platforms = [];
 var curLevel = 0;
+
 levels.push(new Image());
-//levels.push(new Image());
-//levels.push(new Image());
+levels.push(new Image());
+levels.push(new Image());
 levels[0].src = 'assets/Backgrounds/level1.png';
-//levels[1].src = 'assets/Backgrounds/level2.png';
-//levels[2].src = 'assets/Backgrounds/level3.png';
+levels[1].src = 'assets/Backgrounds/level2.png';
+levels[2].src = 'assets/Backgrounds/level3.png';
+
+clouds.push(new Image());
+clouds.push(new Image());
+clouds.push(new Image());
+clouds[0].src = 'assets/Backgrounds/clouds.png';
+clouds[1].src = 'assets/Backgrounds/clouds.png';
+clouds[2].src = 'assets/Backgrounds/clouds2.png';
+
+platforms.push(new Image());
+platforms.push(new Image());
+platforms.push(new Image());
+platforms[0].src = 'assets/Backgrounds/platforms1.png';
+platforms[1].src = 'assets/Backgrounds/platforms2.png';
+platforms[2].src = 'assets/Backgrounds/platforms3.png';
+
 var levelSize = {width: 810, height: 4320};
 var levelTop = levelSize.height - screenSize.height;
 var cloudTop = levelSize.height - screenSize.height;
 var platTop = levelSize.height - screenSize.height;
-var clouds = new Image();
-clouds.src = 'assets/Backgrounds/clouds.png';
-var platforms = new Image();
-platforms.src = 'assets/Backgrounds/platforms.png';
 var waitingEnemies = [];
 var enemies = [];
 var waitingPowerups = [];
@@ -71,13 +85,13 @@ buildLevel();
  */
 window.onkeydown = function(event) {
   if(state == 'summary'){
-    curLevel++;
     // start next level
-    state == 'ready';
+    curLevel++;
+    restart(false);
   }
   else if(state == 'dead'){
     // restart current level
-    state == 'ready';
+    restart(true);
   }
 
   switch(event.key) {
@@ -383,10 +397,16 @@ function check_player_hit(){
 }
 
 
-function restart(){
-
+function restart(died){
+    levelTop = levelSize.height - screenSize.height;
+    cloudTop = levelSize.height - screenSize.height;
+    platTop = levelSize.height - screenSize.height;
+    enemyShots = [];
+    enemyTimer = 0;
+    player.restart(died);
+    buildLevel();
+    state = 'ready';
 }
-
 
 
 /**
@@ -424,18 +444,18 @@ function render(elapsedTime, ctx) {
 {/************* Draw clouds *************/
   ctx.globalAlpha = 0.7;
   if(cloudTop < levelSize.height - screenSize.height){  
-    ctx.drawImage(clouds, 
+    ctx.drawImage(clouds[curLevel], 
                   0, cloudTop, levelSize.width, screenSize.height,
                   0, 0, levelSize.width, screenSize.height
                   );
   }
 
   else{
-    ctx.drawImage(clouds, 
+    ctx.drawImage(clouds[curLevel], 
                   0, cloudTop, levelSize.width, screenSize.height,
                   0, 0, levelSize.width, screenSize.height 
                   );
-    ctx.drawImage(clouds, 
+    ctx.drawImage(clouds[curLevel], 
                   0, 0, levelSize.width, screenSize.height,
                   0, (levelSize.height - cloudTop), levelSize.width, screenSize.height 
                   );
@@ -445,18 +465,18 @@ function render(elapsedTime, ctx) {
 
 {/************ Draw platforms ***********/
   if(platTop < levelSize.height - screenSize.height){  
-    ctx.drawImage(platforms, 
+    ctx.drawImage(platforms[curLevel], 
                   0, platTop, levelSize.width, screenSize.height,
                   0, 0, levelSize.width, screenSize.height
                   );
   }
 
   else{
-    ctx.drawImage(platforms, 
+    ctx.drawImage(platforms[curLevel], 
                   0, platTop, levelSize.width, screenSize.height,
                   0, 0, levelSize.width, screenSize.height 
                   );
-    ctx.drawImage(platforms, 
+    ctx.drawImage(platforms[curLevel], 
                   0, 0, levelSize.width, screenSize.height,
                   0, (levelSize.height - platTop), levelSize.width, screenSize.height 
                   );
@@ -557,16 +577,16 @@ function render(elapsedTime, ctx) {
       ctx.fillRect(0, 0, levelSize.width, canvas.height);
       ctx.globalAlpha = 1;
       ctx.font = "60px impact";
-      ctx.fillStyle = "red";
+      ctx.fillStyle = "white";
       ctx.strokeStyle = 'black';
       ctx.textAlign = "center";
-      ctx.fillText("GAME OVER", levelSize.width/2, canvas.height/2); 
-      ctx.strokeText("GAME OVER", levelSize.width/2, canvas.height/2); 
+      ctx.fillText("CONGRATULATIONS!", levelSize.width/2, canvas.height/2); 
+      ctx.strokeText("CONGRATULATIONS!", levelSize.width/2, canvas.height/2); 
       ctx.font = "35px impact";
       ctx.fillStyle = "black";
       ctx.fillText("Final Score: " + score, levelSize.width/2, canvas.height/2 + 40);
       ctx.fillText("Total Enemies Destroyed: " + enemiesDestroyed, levelSize.width/2, canvas.height/2 + 80);
-      break;      
+      break;
     case 'summary':
       ctx.globalAlpha = 0.6;
       ctx.fillStyle = 'white';
@@ -582,6 +602,7 @@ function render(elapsedTime, ctx) {
       ctx.fillStyle = "black";
       ctx.fillText("Level Score: " + levelScore, levelSize.width/2, canvas.height/2 + 40);
       ctx.fillText("Enemies Destroyed: " + enemiesDestroyed, levelSize.width/2, canvas.height/2 + 80);
+      ctx.fillText("Press any key to continue", levelSize.width/2, canvas.height/2 + 180);
       break;
   }
 }
@@ -592,7 +613,7 @@ function buildLevel(){
   waitingPowerups = [];
   switch(curLevel){
     case 0:
-      waitingPowerups.push(new Powerup({x: 400, y: -50}, 100, 1));
+      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 1));
       waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4));
       waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 3));
       break;
@@ -616,6 +637,7 @@ function buildLevel(){
   waitingEnemies = [];
   enemies = [];
   // Enemy 1
+  if(curLevel >= 1)
   for(var k = 0; k < 4; k++){
     for(var i = 0; i < 5; i++){
       for(var j =0; j < 3; j++){
@@ -628,7 +650,6 @@ function buildLevel(){
     // waitingEnemies.push(new Enemy2({x: 650, y: 100}, 0, curLevel, enemyShots))
     // waitingEnemies.push(new Enemy2({x: 300, y: 300}, 0, curLevel, enemyShots))
     // waitingEnemies.push(new Enemy2({x: 500, y: 550}, 0, curLevel, enemyShots))
-  
   var multiplier = 1440;
   for(var i = 0; i < 3; i++){
     waitingEnemies.push(new Enemy2({x: 650, y: -100}, multiplier*i + 115, curLevel, enemyShots))
@@ -671,28 +692,34 @@ function buildLevel(){
 
 
   // Enemy 4
-  for(var i = 0; i < 5; i++){
-    waitingEnemies.push(new Enemy4({x: -50, y: -50}, 600 +  20*i, 1, curLevel, enemyShots))
-  }
-  for(var j = 0; j < 4; j++){
+  if(curLevel >= 2)
+  {
     for(var i = 0; i < 5; i++){
-      waitingEnemies.push(new Enemy4({x: -50, y: -50}, 1000 + 1000*j +  20*i, 1, curLevel, enemyShots))
+      waitingEnemies.push(new Enemy4({x: -50, y: -50}, 600 +  20*i, 1, curLevel, enemyShots))
     }
-  }
-  for(var j = 0; j < 3; j++){
-    for(var i = 0; i < 5; i++){
-      waitingEnemies.push(new Enemy4({x: 860, y: -50}, 1100 +  1100*j +  20*i, -1, curLevel, enemyShots))
-    }  
-  }
+    for(var j = 0; j < 4; j++){
+      for(var i = 0; i < 5; i++){
+        waitingEnemies.push(new Enemy4({x: -50, y: -50}, 1000 + 1000*j +  20*i, 1, curLevel, enemyShots))
+      }
+    }
+    for(var j = 0; j < 3; j++){
+      for(var i = 0; i < 5; i++){
+        waitingEnemies.push(new Enemy4({x: 860, y: -50}, 1100 +  1100*j +  20*i, -1, curLevel, enemyShots))
+      }  
+    }
+  }  
 
 
   // Enemy 5
-  for(var i = 0; i < 5; i++){
-    waitingEnemies.push(new Enemy5({x: 10, y: -50}, 1100 + 30*i, 1, curLevel, enemyShots))
+  if(curLevel >= 2)
+  {  
+    for(var i = 0; i < 5; i++){
+      waitingEnemies.push(new Enemy5({x: 10, y: -50}, 1100 + 30*i, 1, curLevel, enemyShots))
+    }
+    for(var i = 0; i < 5; i++){
+      waitingEnemies.push(new Enemy5({x: 800, y: -50}, 2800 + 30*i, -1, curLevel, enemyShots))
+    }  
   }
-  for(var i = 0; i < 5; i++){
-    waitingEnemies.push(new Enemy5({x: 800, y: -50}, 2800 + 30*i, -1, curLevel, enemyShots))
-  }  
 
   // Sort waiting enemies list from least startTime to greatest
   waitingEnemies.sort(function(a, b){

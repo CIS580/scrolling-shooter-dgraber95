@@ -224,3 +224,21 @@ Player.prototype.render = function(elapsedTime, ctx) {
     this.shots[i].render(elapsedTime, ctx);
   }
 }
+
+/**
+ * @function restart
+ * 
+ * @param {} 
+ */
+Player.prototype.restart = function(restart) {
+  this.angle = 0;
+  this.angle_offset = 0;
+  this.position = {x: 405, y: 500};
+  this.velocity = {x: 0, y: 0};
+  this.shots = [];
+  this.shot12Timer = SHOT12_TIMER;
+  this.shot34Timer = SHOT34_TIMER;
+  this.shielding = false;
+  this.shieldTimer = SHIELD_TIMER;
+  this.state = 'ready';
+}
