@@ -77,8 +77,8 @@ var levelDestroyed = 0;
 var score = 0;
 var levelScore = 0;
 // Colors used for explosions
-var explosion_colors = ['#696359', '#F02E2E', '#FFAF2E'];
 var explosions = [];
+var explosion_colors = ['#696359', '#F02E2E', '#FFAF2E'];
 buildLevel();
 
 
@@ -325,13 +325,14 @@ function update(elapsedTime) {
         enemyShots.splice(index, 1);
       });
 
-      // Check for shot on player collisions
-      check_player_hit();
-      check_enemies_hit();
-      // Check for enemy on player collisions
-      // Check for shot on enemy collisions
-      // Check for player on powerup collisions
-      check_powerups();
+      if(player.state == 'running'){
+        // Check for shot on player collisions
+        check_player_hit();
+        // Check for shot on enemy and enemy on player collisions
+        check_enemies_hit();
+        // Check for player on powerup collisions
+        check_powerups();
+      }
 
       // If player is dead, check lives count and act accordingly
       if(player.state == 'dead'){
@@ -395,9 +396,9 @@ function check_powerups(){
 
 
 function check_enemies_hit(){
-  for(var i = 0; i < player.shots.length; i++){
-    for(var j = 0; j < enemies.length; j++){
-      var enemy = enemies[j];
+  for(var j = 0; j < enemies.length; j++){
+    var enemy = enemies[j];
+    for(var i = 0; i < player.shots.length; i++){
       var shot = player.shots[i];
 
       if(!(shot.position.x + shot.draw_width/2 + shot.width/2 < enemy.position.x ||
@@ -405,9 +406,19 @@ function check_enemies_hit(){
         shot.position.y + shot.draw_height/2 - shot.height/2 > enemy.position.y + enemy.height - 15||
         shot.position.y + shot.draw_height/2 + shot.height/2 < enemy.position.y))
       {
-          player.shots[i].remove = true;;
+          player.shots[i].remove = true;
           enemy.struck();
+          levelDestroyed++;
+          levelScore += 100;
       }
+    }
+    if(!(player.position.x + player.draw_width/2 + player.width/2 < enemy.position.x ||
+      player.position.x + player.draw_width/2 - player.width/2> enemy.position.x + enemy.width ||
+      player.position.y + player.draw_height/2 - player.height/2 > enemy.position.y + enemy.height - 15||
+      player.position.y + player.draw_height/2 + player.height/2 < enemy.position.y))
+    {
+        player.struck(5);
+        enemy.struck();
     }
   }
 }
@@ -423,8 +434,7 @@ function check_player_hit(){
        shotX - 5 > playerX + 25 ||
        shotY + 5 < playerY - 25 ||
        shotY - 5 > playerY + 25))
-    {
-        enemyShots[i].remove = true;;
+    {enemyShots[i].remove = true;;
         player.struck(2);
     }
   }
@@ -588,7 +598,7 @@ function render(elapsedTime, ctx) {
       ctx.strokeText("YOU DIED", levelSize.width/2, canvas.height/2); 
       ctx.font = "35px impact";
       ctx.fillStyle = "black";
-      ctx.fillText("Lives remaining: " + score, levelSize.width/2, canvas.height/2 + 40);
+      ctx.fillText("Lives remaining: " + player.lives, levelSize.width/2, canvas.height/2 + 40);
       ctx.fillText("Press any key to continue", levelSize.width/2, canvas.height/2 + 80);
       break;
     case 'gameover':
@@ -650,6 +660,7 @@ function render(elapsedTime, ctx) {
 function buildLevel(){
   // Drop powerups
   waitingPowerups = [];
+  powerups = [];
   switch(curLevel){
     case 0:
       waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 1, explosions));
@@ -659,12 +670,12 @@ function buildLevel(){
 
     case 1:
       waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 4, explosions));
-      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 2, explosions));
+      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 3, explosions));
       waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1, explosions));
       break;
 
     case 2:
-      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 3, explosions));
+      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 2, explosions));
       waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4, explosions));
       waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1, explosions));    
       break;

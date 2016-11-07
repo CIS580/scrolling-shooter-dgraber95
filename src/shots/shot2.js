@@ -24,6 +24,10 @@ function Shot2(position, direction) {
   this.image = new Image();
   this.image.src = 'assets/using/shots/shots_2.png';
   this.remove = false;
+  this.width = 18;
+  this.height = 18;
+  this.draw_width = 18;
+  this.draw_height = 18;
 }
 
 
@@ -49,6 +53,6 @@ Shot2.prototype.update = function(time) {
  */
 Shot2.prototype.render = function(time, ctx) {
     ctx.translate(this.position.x, this.position.y);
-    ctx.drawImage(this.image, 6 + 6*this.direction ,0, 12, 12, 0, 20, 18, 18);  
+    ctx.drawImage(this.image, 6 + 6*this.direction ,0, 12, 12, 0, 20, this.draw_width, this.draw_height);  
     ctx.translate(-this.position.x, -this.position.y);
 }

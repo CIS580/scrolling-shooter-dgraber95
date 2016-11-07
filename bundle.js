@@ -78,8 +78,8 @@ var levelDestroyed = 0;
 var score = 0;
 var levelScore = 0;
 // Colors used for explosions
-var explosion_colors = ['#696359', '#F02E2E', '#FFAF2E'];
 var explosions = [];
+var explosion_colors = ['#696359', '#F02E2E', '#FFAF2E'];
 buildLevel();
 
 
@@ -326,13 +326,14 @@ function update(elapsedTime) {
         enemyShots.splice(index, 1);
       });
 
-      // Check for shot on player collisions
-      check_player_hit();
-      check_enemies_hit();
-      // Check for enemy on player collisions
-      // Check for shot on enemy collisions
-      // Check for player on powerup collisions
-      check_powerups();
+      if(player.state == 'running'){
+        // Check for shot on player collisions
+        check_player_hit();
+        // Check for shot on enemy and enemy on player collisions
+        check_enemies_hit();
+        // Check for player on powerup collisions
+        check_powerups();
+      }
 
       // If player is dead, check lives count and act accordingly
       if(player.state == 'dead'){
@@ -396,9 +397,9 @@ function check_powerups(){
 
 
 function check_enemies_hit(){
-  for(var i = 0; i < player.shots.length; i++){
-    for(var j = 0; j < enemies.length; j++){
-      var enemy = enemies[j];
+  for(var j = 0; j < enemies.length; j++){
+    var enemy = enemies[j];
+    for(var i = 0; i < player.shots.length; i++){
       var shot = player.shots[i];
 
       if(!(shot.position.x + shot.draw_width/2 + shot.width/2 < enemy.position.x ||
@@ -406,9 +407,19 @@ function check_enemies_hit(){
         shot.position.y + shot.draw_height/2 - shot.height/2 > enemy.position.y + enemy.height - 15||
         shot.position.y + shot.draw_height/2 + shot.height/2 < enemy.position.y))
       {
-          player.shots[i].remove = true;;
+          player.shots[i].remove = true;
           enemy.struck();
+          levelDestroyed++;
+          levelScore += 100;
       }
+    }
+    if(!(player.position.x + player.draw_width/2 + player.width/2 < enemy.position.x ||
+      player.position.x + player.draw_width/2 - player.width/2> enemy.position.x + enemy.width ||
+      player.position.y + player.draw_height/2 - player.height/2 > enemy.position.y + enemy.height - 15||
+      player.position.y + player.draw_height/2 + player.height/2 < enemy.position.y))
+    {
+        player.struck(5);
+        enemy.struck();
     }
   }
 }
@@ -424,8 +435,7 @@ function check_player_hit(){
        shotX - 5 > playerX + 25 ||
        shotY + 5 < playerY - 25 ||
        shotY - 5 > playerY + 25))
-    {
-        enemyShots[i].remove = true;;
+    {enemyShots[i].remove = true;;
         player.struck(2);
     }
   }
@@ -589,7 +599,7 @@ function render(elapsedTime, ctx) {
       ctx.strokeText("YOU DIED", levelSize.width/2, canvas.height/2); 
       ctx.font = "35px impact";
       ctx.fillStyle = "black";
-      ctx.fillText("Lives remaining: " + score, levelSize.width/2, canvas.height/2 + 40);
+      ctx.fillText("Lives remaining: " + player.lives, levelSize.width/2, canvas.height/2 + 40);
       ctx.fillText("Press any key to continue", levelSize.width/2, canvas.height/2 + 80);
       break;
     case 'gameover':
@@ -651,6 +661,7 @@ function render(elapsedTime, ctx) {
 function buildLevel(){
   // Drop powerups
   waitingPowerups = [];
+  powerups = [];
   switch(curLevel){
     case 0:
       waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 1, explosions));
@@ -660,12 +671,12 @@ function buildLevel(){
 
     case 1:
       waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 4, explosions));
-      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 2, explosions));
+      waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 3, explosions));
       waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1, explosions));
       break;
 
     case 2:
-      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 3, explosions));
+      waitingPowerups.push(new Powerup({x: 400, y: -50}, 1000, 2, explosions));
       waitingPowerups.push(new Powerup({x: 600, y: -50}, 2000, 4, explosions));
       waitingPowerups.push(new Powerup({x: 200, y: -50}, 3000, 1, explosions));    
       break;
@@ -1731,13 +1742,16 @@ const Shot1 = require('./shots/shot1');
 const Shot2 = require('./shots/shot2');
 const Shot3 = require('./shots/shot3');
 const Shot4 = require('./shots/shot4');
+const Explosion = require('./explosion');
 
 /* Constants */
 const PLAYER_SPEED = 7;
 const BULLET_SPEED = 14;
-const SHOT12_TIMER = 200;
-const SHOT34_TIMER = 600;
+const SHOT_TIMER = 600;
 const SHIELD_TIMER = 100;
+const START_SHIELDS = 100;
+
+var explosion_colors = ['105,99,89,', '240,46,46,', '255,175,46,'];
 
 /**
  * @module Player
@@ -1762,17 +1776,22 @@ function Player() {
   this.shield = new Image();
   this.shield.src = 'assets/using/ship/shield.png';
   this.shots = [];
-  this.shot12Timer = SHOT12_TIMER;
-  this.shot34Timer = SHOT34_TIMER;
-  this.shot1Level = 0;
-  this.shot2Level = -1;
-  this.shot3Level = -1;
-  this.shot4Level = -1;
+  this.shotTimer = SHOT_TIMER;
+  this.shotsToRemove = [0, 0, 0, 0];
+  this.shotLevels = [0, -1, -1, -1];
+  this.levelMaxes = [3, 0, 1, 2];
   this.shielding = false;
   this.shieldTimer = SHIELD_TIMER;
-  this.shields = 100;
+  this.shields = START_SHIELDS;
   this.lives = 3;
   this.state = 'ready';
+  this.imgWidth = 23;
+  this.imgHeight = 27;
+  this.width = 2* this.imgWidth;
+  this.draw_width = this.width;
+  this.height = 2 * this.imgHeight;
+  this.draw_height = this.height;
+  this.explosion = null;
 }
 
 Player.prototype.debug = function(key){
@@ -1793,10 +1812,7 @@ Player.prototype.debug = function(key){
       this.shielding = true;
       break;
     case 'r': // reset shot levels
-      this.shot1Level = 0;
-      this.shot2Level = -1;
-      this.shot3Level = -1;
-      this.shot4Level = -1;
+      this.shotLevels = [0, -1, -1, -1];
       break;   
   }
 }
@@ -1808,24 +1824,18 @@ Player.prototype.struck = function(damage){
   }
   else{
     // Destroy player
+    this.explosion = new Explosion({x: this.position.x + this.imgWidth,
+                                        y: this.position.y + this.imgHeight}, 
+                                        explosion_colors);
     this.state = 'exploding';
+    this.lives--;
   }
 }
 
 Player.prototype.pickupPowerup = function(powerup){
-  switch(powerup){
-    case 1: // Base gun
-      if(this.shot1Level < 3) this.shot1Level++;
-      break;
-    case 2: // Green angled shots
-      if(this.shot2Level < 0) this.shot2Level++;
-      break;
-    case 3: // Missiles
-      if(this.shot3Level < 1) this.shot3Level++;
-      break;
-    case 4: // Horizontal shots
-      if(this.shot4Level < 2) this.shot4Level++;
-      break;
+  if(this.shotLevels[powerup-1] < this.levelMaxes[powerup-1]){
+    this.shotsToRemove[powerup-1]++;
+    this.shotLevels[powerup-1]++;
   }
 }
 
@@ -1837,6 +1847,8 @@ Player.prototype.pickupPowerup = function(powerup){
  * boolean properties: up, left, right, down
  */
 Player.prototype.update = function(elapsedTime, input) {
+  this.velocity.x = 0;
+  this.velocity.y = 0;
   if(this.shielding){
     this.shieldTimer -= elapsedTime;
     if(this.shieldTimer <= 0){
@@ -1847,18 +1859,21 @@ Player.prototype.update = function(elapsedTime, input) {
 
   if(this.state == 'running' || this.state == 'ready'){
     // set the velocity
-    this.velocity.x = 0;
     if(input.left) this.velocity.x -= PLAYER_SPEED;
     if(input.right) this.velocity.x += PLAYER_SPEED;
-    this.velocity.y = 0;
     if(input.up) this.velocity.y -= PLAYER_SPEED / 2;
     if(input.down) this.velocity.y += PLAYER_SPEED;
   }
   else if(this.state == 'finished'){
-    this.velocity.x = 0;
     this.velocity.y = -PLAYER_SPEED;
     if(this.position.y < -50){
       this.state = 'offscreen';
+    }
+  }
+  else if(this.state == 'exploding'){
+    this.explosion.update(elapsedTime);
+    if(this.explosion._killed){
+      this.state = 'dead';
     }
   }
 
@@ -1877,31 +1892,27 @@ Player.prototype.update = function(elapsedTime, input) {
   if(this.position.y > 750) this.position.y = 750;
   if(this.position.y < 36 && (this.state == 'running' || this.state == 'ready')) this.position.y = 36;
 
-  this.shot12Timer -= elapsedTime;
-  this.shot34Timer -= elapsedTime;
+  this.shotTimer -= elapsedTime;
 
   // add necessary shots
   if(input.firing && this.state == 'running'){
-    if(this.shot12Timer <= 0){
-      this.shots.push(new Shot1(this.position, this.shot1Level));
-      if(this.shot2Level >= 0){
+    if(this.shotTimer <= 0){
+      this.shots.push(new Shot1(this.position, this.shotLevels[0]));
+      if(this.shotLevels[1] >= 0){
         this.shots.push(new Shot2(this.position, -1));
         this.shots.push(new Shot2(this.position, 1));
       }
-      this.shot12Timer = SHOT12_TIMER;
-    }
-    if(this.shot34Timer <= 0){
       var posx = this.position.x;
       var posy = this.position.y;
-      if(this.shot3Level >= 0){
-        this.shots.push(new Shot3({x: posx - 27, y : posy}, this.shot3Level));
-        this.shots.push(new Shot3({x: posx + 33, y: posy}, this.shot3Level));
+      if(this.shotLevels[2] >= 0){
+        this.shots.push(new Shot3({x: posx - 27, y : posy}, this.shotLevels[2]));
+        this.shots.push(new Shot3({x: posx + 33, y: posy}, this.shotLevels[2]));
       }
-      if(this.shot4Level >= 0){
-        this.shots.push(new Shot4(this.position, -1, this.shot4Level));
-        this.shots.push(new Shot4(this.position, 1, this.shot4Level));
+      if(this.shotLevels[3] >= 0){
+        this.shots.push(new Shot4(this.position, -1, this.shotLevels[3]));
+        this.shots.push(new Shot4(this.position, 1, this.shotLevels[3]));
       }
-      this.shot34Timer = SHOT34_TIMER;
+      this.shotTimer = SHOT_TIMER;
     }
   }
 
@@ -1929,23 +1940,30 @@ Player.prototype.render = function(elapsedTime, ctx) {
   for(var i = 0; i < this.shots.length; i++){
     this.shots[i].render(elapsedTime, ctx);
   }
-  
+
+  if(this.state == 'exploding'){
+    this.explosion.render(elapsedTime, ctx);
+  }
+
   var offset = this.angle * 21;
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
 
-  // Draw ship
-  ctx.drawImage(this.img, 42+offset, 0, 21, 27, 0, 0, 46, 54);
+  if(this.state != 'dead' && this.state != 'exploding'){
+    // Draw ship
+    ctx.drawImage(this.img, 42+offset, 0, 21, 27, 0, 0, this.draw_width, this.draw_height);
+    // Draw missle launchers
+    if(this.shotLevels[2] >= 0){
+      ctx.drawImage(this.guns, 0 ,0, 41, 13, -18, 15, 82, 26);
+    }
 
-  // Draw missle launchers
-  if(this.shot3Level >= 0){
-    ctx.drawImage(this.guns, 0 ,0, 41, 13, -18, 15, 82, 26);
+    // Draw shield
+    if(this.shielding){
+      ctx.drawImage(this.shield, 0 ,0, 556, 556, -11, -5, 70, 70);  
+    }
   }
 
-  // Draw shield
-  if(this.shielding){
-    ctx.drawImage(this.shield, 0 ,0, 556, 556, -11, -5, 70, 70);  
-  }
+
 
   ctx.restore();
 
@@ -1962,13 +1980,19 @@ Player.prototype.restart = function(restart) {
   this.position = {x: 405, y: 500};
   this.velocity = {x: 0, y: 0};
   this.shots = [];
-  this.shot12Timer = SHOT12_TIMER;
-  this.shot34Timer = SHOT34_TIMER;
+  this.shotTimer = SHOT_TIMER;
   this.shielding = false;
   this.shieldTimer = SHIELD_TIMER;
   this.state = 'ready';
+  if(restart){
+    this.shields = START_SHIELDS;
+    for(var i = 0; i < this.shotsToRemove.length; i++){
+      this.shotLevels[i] -= this.shotsToRemove[i];
+    }
+  }
+  this.shotsToRemove = [0, 0, 0, 0];   
 }
-},{"./shots/shot1":15,"./shots/shot2":16,"./shots/shot3":17,"./shots/shot4":18,"./vector":20}],13:[function(require,module,exports){
+},{"./explosion":9,"./shots/shot1":15,"./shots/shot2":16,"./shots/shot3":17,"./shots/shot4":18,"./vector":20}],13:[function(require,module,exports){
 "use strict";
 
 const SPEED = 3;
@@ -2190,6 +2214,10 @@ function Shot2(position, direction) {
   this.image = new Image();
   this.image.src = 'assets/using/shots/shots_2.png';
   this.remove = false;
+  this.width = 18;
+  this.height = 18;
+  this.draw_width = 18;
+  this.draw_height = 18;
 }
 
 
@@ -2215,7 +2243,7 @@ Shot2.prototype.update = function(time) {
  */
 Shot2.prototype.render = function(time, ctx) {
     ctx.translate(this.position.x, this.position.y);
-    ctx.drawImage(this.image, 6 + 6*this.direction ,0, 12, 12, 0, 20, 18, 18);  
+    ctx.drawImage(this.image, 6 + 6*this.direction ,0, 12, 12, 0, 20, this.draw_width, this.draw_height);  
     ctx.translate(-this.position.x, -this.position.y);
 }
 
@@ -2271,7 +2299,7 @@ Shot3.prototype.update = function(time) {
   this.position.y -= SPEED;
 
   if(this.position.x < -50 || this.position.x > this.worldWidth ||
-     this.position.y < -50 || this.position.y > this.worldHeight){
+     this.position.y < -200 || this.position.y > this.worldHeight){
     this.remove = true;;
   }
   // emit smoke

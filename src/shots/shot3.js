@@ -49,7 +49,7 @@ Shot3.prototype.update = function(time) {
   this.position.y -= SPEED;
 
   if(this.position.x < -50 || this.position.x > this.worldWidth ||
-     this.position.y < -50 || this.position.y > this.worldHeight){
+     this.position.y < -200 || this.position.y > this.worldHeight){
     this.remove = true;;
   }
   // emit smoke

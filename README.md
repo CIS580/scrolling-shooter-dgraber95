@@ -50,3 +50,5 @@ Assets are remastered graphics from the game Tyrian released as public domain on
 Grass backgrounds from http://hasgraphics.com/2d-zelda-like-rpg-tileslostgarden/
 
 Shield http://opengameart.org/content/shield-effect
+
+Explosion particles and explosion class adapted from http://mentalgrain.com/html5/explosion-fx-in-html5/
