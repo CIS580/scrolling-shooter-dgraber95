@@ -1,6 +1,6 @@
 "use strict";
 
-const READY_TIMER = 0;
+const READY_TIMER = 2400;
 
 /* Classes and Libraries */
 const Game = require('./game');
@@ -58,6 +58,9 @@ platforms.push(new Image());
 platforms[0].src = 'assets/Backgrounds/platforms1.png';
 platforms[1].src = 'assets/Backgrounds/platforms2.png';
 platforms[2].src = 'assets/Backgrounds/platforms3.png';
+
+var gui = new Image();
+gui.src = 'assets/using/GUI/gui.png';
 
 var levelSize = {width: 810, height: 4320};
 var levelTop = levelSize.height - screenSize.height;
@@ -158,7 +161,7 @@ window.onkeydown = function(event) {
     default:
       if(debugInput){
         debugInput = false;
-        player.debug(event.key);
+        //player.debug(event.key);
       }
       break;
   }
@@ -208,9 +211,9 @@ window.onkeyup = function(event) {
  * Pause game if window loses focus
  */
 window.onblur = function(){
-  // if(state == 'running' || state == 'ready'){
-  //   state = 'paused';
-  // }
+  if(state == 'running' || state == 'ready'){
+    state = 'paused';
+  }
 }
 
 /**
@@ -347,6 +350,8 @@ function update(elapsedTime) {
       if(waitingEnemies.length == 0 && enemies.length == 0){
         player.state = 'finished';
         state = 'levelDone';
+        enemiesDestroyed += levelDestroyed;
+        score += levelScore;
       }
       break;
     
@@ -355,7 +360,7 @@ function update(elapsedTime) {
       player.update(elapsedTime, input);
       if(player.state == 'offscreen'){
         if(curLevel < 2) state = 'summary';
-          else state = 'gameDone';
+        else state = 'gameDone';
       }
       // Update enemy shots
       var markedForRemoval = [];
@@ -409,7 +414,7 @@ function check_enemies_hit(){
           player.shots[i].remove = true;
           enemy.struck();
           levelDestroyed++;
-          levelScore += 100;
+          levelScore += 14;
       }
     }
     if(!(player.position.x + player.draw_width/2 + player.width/2 < enemy.position.x ||
@@ -442,6 +447,8 @@ function check_player_hit(){
 
 
 function restart(died){
+    levelScore = 0;
+    levelDestroyed = 0;
     levelTop = levelSize.height - screenSize.height;
     cloudTop = levelSize.height - screenSize.height;
     platTop = levelSize.height - screenSize.height;
@@ -650,7 +657,7 @@ function render(elapsedTime, ctx) {
       ctx.font = "35px impact";
       ctx.fillStyle = "black";
       ctx.fillText("Level Score: " + levelScore, levelSize.width/2, canvas.height/2 + 40);
-      ctx.fillText("Enemies Destroyed: " + enemiesDestroyed, levelSize.width/2, canvas.height/2 + 80);
+      ctx.fillText("Enemies Destroyed: " + levelDestroyed, levelSize.width/2, canvas.height/2 + 80);
       ctx.fillText("Press any key to continue", levelSize.width/2, canvas.height/2 + 180);
       break;
   }
@@ -697,9 +704,6 @@ function buildLevel(){
   }
 
   // Enemy 2
-    // waitingEnemies.push(new Enemy2({x: 650, y: 100}, 0, curLevel, enemyShots, explosions))
-    // waitingEnemies.push(new Enemy2({x: 300, y: 300}, 0, curLevel, enemyShots, explosions))
-    // waitingEnemies.push(new Enemy2({x: 500, y: 550}, 0, curLevel, enemyShots, explosions))
   var multiplier = 1440;
   for(var i = 0; i < 3; i++){
     waitingEnemies.push(new Enemy2({x: 650, y: -100}, multiplier*i + 115, curLevel, enemyShots, explosions))
@@ -784,5 +788,61 @@ function buildLevel(){
   * @param {CanvasRenderingContext2D} ctx
   */
 function renderGUI(elapsedTime, ctx) {
-  // TODO: Render the GUI
+  ctx.save();
+  ctx.drawImage(gui, 0, 0, 576, 2208, 810, 0, 214, 786);
+
+  ctx.translate(830, 13);
+  // Render player shot levels
+  for(var i = 0; i < player.shotLevels.length; i++){
+    for(var j = 0; j < player.shotLevels[i]+1; j++){
+      ctx.drawImage(player.powerups[i], 0, 0, 20, 21, 42*j, 68*i, 40, 42);
+    }
+  }
+  ctx.translate(-830, -13);
+
+  // Render shields
+  if(player.shields > 0){
+    if(player.shields > 20) ctx.fillStyle = 'blue';
+    else ctx.fillStyle = 'red';
+    ctx.fillRect(891, 571, 50, -288*(player.shields)/100);
+  }
+
+  // Render "shields"
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'white';
+  ctx.strokeStyle = 'black';
+  ctx.font = "50px impact";
+  ctx.translate(938, 440);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign = "center";
+  ctx.fillText("SHIELDS", 0, 0); 
+  ctx.strokeText("SHIELDS", 0, 0); 
+  ctx.rotate(Math.PI/2);
+
+  // Render remaining lives
+  ctx.font = "30px impact";
+  ctx.translate(-65, 185);
+  ctx.fillText("Lives:", 0, 0); 
+  ctx.strokeText("Lives:", 0, 0);
+
+  ctx.translate(40, -29);
+  for(var i = 0; i < player.lives; i++){
+    ctx.drawImage(player.img, 42, 0, 21, 27, 0, 0, 27, 35);
+    ctx.translate(35, 0);
+  }
+  ctx.translate(-i*35, 0);
+
+  // Render score
+  ctx.font = "30px impact";
+  ctx.translate(0, 100);
+  ctx.fillText("Score: " + levelScore, 0, 0); 
+  ctx.strokeText("Score: " + levelScore, 0, 0);   
+
+  // Render level number
+  ctx.font = "30px impact";
+  ctx.translate(0, 70);
+  ctx.fillText("Level: " + curLevel, 0, 0); 
+  ctx.strokeText("Level: " + curLevel, 0, 0); 
+
+  ctx.restore();
 }

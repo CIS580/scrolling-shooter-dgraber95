@@ -56,6 +56,11 @@ function Player() {
   this.height = 2 * this.imgHeight;
   this.draw_height = this.height;
   this.explosion = null;
+  this.powerups = [];
+  for(var i = 1; i < 5; i++){
+    this.powerups.push(new Image());
+    this.powerups[i-1].src = 'assets/using/powerups/powerup_' + i + '.png';
+  }
 }
 
 Player.prototype.debug = function(key){
@@ -226,11 +231,7 @@ Player.prototype.render = function(elapsedTime, ctx) {
       ctx.drawImage(this.shield, 0 ,0, 556, 556, -11, -5, 70, 70);  
     }
   }
-
-
-
   ctx.restore();
-
 }
 
 /**

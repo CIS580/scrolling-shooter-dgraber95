@@ -1,6 +1,7 @@
 "use strict";
 
 const SPEED = 8;
+const SmokeParticles = require('../smoke_particles');
 
 /**
  * @module exports the Shot2 class
@@ -22,12 +23,14 @@ function Shot2(position, direction) {
     y: position.y
   };
   this.image = new Image();
+  this.smokeParticles = new SmokeParticles(400, '124,252,0');
   this.image.src = 'assets/using/shots/shots_2.png';
   this.remove = false;
   this.width = 18;
   this.height = 18;
   this.draw_width = 18;
   this.draw_height = 18;
+  this.particleTimer = 5;
 }
 
 
@@ -40,10 +43,22 @@ Shot2.prototype.update = function(time) {
   this.position.y -= SPEED;
   this.position.x += SPEED * this.direction;
 
-  if(this.position.x < -50 || this.position.x > this.worldWidth ||
-     this.position.y < -50 || this.position.y > this.worldHeight){
+  if(this.position.x < -200 || this.position.x > this.worldWidth + 200||
+     this.position.y < -200 || this.position.y > this.worldHeight + 200){
     this.remove = true;;
   }
+  this.particleTimer--;
+  if(this.particleTimer <= 0){
+    // emit smoke
+    if(this.direction == 1)
+    this.smokeParticles.emit({x: this.position.x + 10, y: this.position.y + 25});  
+    else if(this.direction == -1)
+    this.smokeParticles.emit({x: this.position.x, y: this.position.y + 18});      
+    this.particleTimer = 5;
+  }
+
+  // update smoke
+  this.smokeParticles.update(time);
 }
 
 /**
@@ -55,4 +70,7 @@ Shot2.prototype.render = function(time, ctx) {
     ctx.translate(this.position.x, this.position.y);
     ctx.drawImage(this.image, 6 + 6*this.direction ,0, 12, 12, 0, 20, this.draw_width, this.draw_height);  
     ctx.translate(-this.position.x, -this.position.y);
+
+    // Draw Smoke
+    this.smokeParticles.render(time, ctx);    
 }

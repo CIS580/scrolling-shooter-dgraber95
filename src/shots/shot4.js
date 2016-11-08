@@ -1,6 +1,7 @@
 "use strict";
 
 const SPEED = 8;
+const SmokeParticles = require('../smoke_particles');
 
 /**
  * @module exports the Shot4 class
@@ -18,6 +19,7 @@ function Shot4(position, direction, level) {
   this.worldHeight = 750;
   this.direction = direction;
   this.level = level;
+  this.smokeParticles = new SmokeParticles(400, '255,255,102');
   this.position = {
     x: position.x + 11 + 10*this.direction,
     y: position.y
@@ -27,6 +29,7 @@ function Shot4(position, direction, level) {
   this.remove = false;
   this.draw_height = 20;
   this.draw_width = 28;  
+  this.particleTimer = 5;  
   switch(level){
     case 0: 
       this.width = 14;
@@ -54,10 +57,22 @@ Shot4.prototype.update = function(time) {
   // Apply velocity
   this.position.x += SPEED * this.direction;
 
-  if(this.position.x < 0 || this.position.x > this.worldWidth ||
-     this.position.y < 0 || this.position.y > this.worldHeight){
+  if(this.position.x < -200 || this.position.x > this.worldWidth + 200||
+     this.position.y < -200 || this.position.y > this.worldHeight + 200){
     this.remove = true;;
   }
+
+  this.particleTimer--;
+  if(this.particleTimer <= 0){
+    // emit smoke
+    // if(this.direction == 1)
+    this.smokeParticles.emit({x: this.position.x + 10, y: this.position.y + 28});  
+    // else if(this.direction == -1)
+    // this.smokeParticles.emit({x: this.position.x, y: this.position.y + 18});      
+    this.particleTimer = 5;
+  }
+  // update smoke
+  this.smokeParticles.update(time);  
 }
 
 /**
@@ -70,4 +85,6 @@ Shot4.prototype.render = function(time, ctx) {
     ctx.drawImage(this.image, 28*this.level + 7 + 7*this.direction ,0, 14, 10, 0, 20, this.draw_width, this.draw_height );  
     ctx.translate(-this.position.x, -this.position.y);
 
+    // Draw Smoke
+    this.smokeParticles.render(time, ctx);
 }

@@ -12,7 +12,8 @@ module.exports = exports = SmokeParticles;
  * Creates a SmokeParticles engine of the specified size
  * @param {uint} size the maximum number of particles to exist concurrently
  */
-function SmokeParticles(maxSize) {
+function SmokeParticles(maxSize, color) {
+  this.color = color;
   this.pool = new Float32Array(3 * maxSize);
   this.start = 0;
   this.end = 0;
@@ -46,7 +47,7 @@ SmokeParticles.prototype.emit = function(position) {
  */
 SmokeParticles.prototype.update = function(elapsedTime) {
   function updateParticle(i) {
-    this.pool[3*i+2] += elapsedTime;
+    this.pool[3*i+2] += 1.5*elapsedTime;
     if(this.pool[3*i+2] > 2000) this.start = i;
   }
   var i;
@@ -83,7 +84,7 @@ SmokeParticles.prototype.render = function(elapsedTime, ctx) {
       0,
       2*Math.PI
     );
-    ctx.fillStyle = 'rgba(160, 160, 160,' + alpha + ')';
+    ctx.fillStyle = 'rgba(' + this.color + ',' + alpha + ')';
     ctx.fill();
   }
 

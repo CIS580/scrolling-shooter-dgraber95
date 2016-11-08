@@ -52,3 +52,5 @@ Grass backgrounds from http://hasgraphics.com/2d-zelda-like-rpg-tileslostgarden/
 Shield http://opengameart.org/content/shield-effect
 
 Explosion particles and explosion class adapted from http://mentalgrain.com/html5/explosion-fx-in-html5/
+
+GUI Windows tileset from http://opengameart.org/content/gui-windows-constructor

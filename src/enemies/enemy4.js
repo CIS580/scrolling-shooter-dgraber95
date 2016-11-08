@@ -72,8 +72,8 @@ Enemy4.prototype.update = function(time, playerPos) {
     // Fire when ready
     this.shotTimer -= time;
     if(this.shotTimer <= 0){
-        this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
-                                            y: this.position.y + 10},
+        this.enemyShots.push(new EnemyShot({x: this.position.x -12,
+                                            y: this.position.y - 10},
                                             playerPos));
         this.shotTimer = this.shotWait;
     }  

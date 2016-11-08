@@ -25,9 +25,10 @@ function Shot3(position, level) {
   this.image = new Image();
   this.image.src = 'assets/using/shots/shots_3.png';
   this.remove = false;
-  this.smokeParticles = new SmokeParticles(400);  
+  this.smokeParticles = new SmokeParticles(400, '160, 160, 160');  
   this.draw_height = 28;
   this.draw_width = 18;
+  this.particleTimer = 2;
   switch(level){
     case 0:
       this.width = 14;
@@ -52,8 +53,15 @@ Shot3.prototype.update = function(time) {
      this.position.y < -200 || this.position.y > this.worldHeight){
     this.remove = true;;
   }
-  // emit smoke
-  this.smokeParticles.emit({x: this.position.x + 9, y: this.position.y + 50});  
+
+
+  this.particleTimer--;
+  if(this.particleTimer <= 0){
+    // emit smoke
+    this.smokeParticles.emit({x: this.position.x + 9, y: this.position.y + 50});  
+
+    this.particleTimer = 2;
+  }  
 
   // update smoke
   this.smokeParticles.update(time);

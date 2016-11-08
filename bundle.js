@@ -1,7 +1,7 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 "use strict";
 
-const READY_TIMER = 0;
+const READY_TIMER = 2400;
 
 /* Classes and Libraries */
 const Game = require('./game');
@@ -59,6 +59,9 @@ platforms.push(new Image());
 platforms[0].src = 'assets/Backgrounds/platforms1.png';
 platforms[1].src = 'assets/Backgrounds/platforms2.png';
 platforms[2].src = 'assets/Backgrounds/platforms3.png';
+
+var gui = new Image();
+gui.src = 'assets/using/GUI/gui.png';
 
 var levelSize = {width: 810, height: 4320};
 var levelTop = levelSize.height - screenSize.height;
@@ -159,7 +162,7 @@ window.onkeydown = function(event) {
     default:
       if(debugInput){
         debugInput = false;
-        player.debug(event.key);
+        //player.debug(event.key);
       }
       break;
   }
@@ -209,9 +212,9 @@ window.onkeyup = function(event) {
  * Pause game if window loses focus
  */
 window.onblur = function(){
-  // if(state == 'running' || state == 'ready'){
-  //   state = 'paused';
-  // }
+  if(state == 'running' || state == 'ready'){
+    state = 'paused';
+  }
 }
 
 /**
@@ -348,6 +351,8 @@ function update(elapsedTime) {
       if(waitingEnemies.length == 0 && enemies.length == 0){
         player.state = 'finished';
         state = 'levelDone';
+        enemiesDestroyed += levelDestroyed;
+        score += levelScore;
       }
       break;
     
@@ -356,7 +361,7 @@ function update(elapsedTime) {
       player.update(elapsedTime, input);
       if(player.state == 'offscreen'){
         if(curLevel < 2) state = 'summary';
-          else state = 'gameDone';
+        else state = 'gameDone';
       }
       // Update enemy shots
       var markedForRemoval = [];
@@ -410,7 +415,7 @@ function check_enemies_hit(){
           player.shots[i].remove = true;
           enemy.struck();
           levelDestroyed++;
-          levelScore += 100;
+          levelScore += 14;
       }
     }
     if(!(player.position.x + player.draw_width/2 + player.width/2 < enemy.position.x ||
@@ -443,6 +448,8 @@ function check_player_hit(){
 
 
 function restart(died){
+    levelScore = 0;
+    levelDestroyed = 0;
     levelTop = levelSize.height - screenSize.height;
     cloudTop = levelSize.height - screenSize.height;
     platTop = levelSize.height - screenSize.height;
@@ -651,7 +658,7 @@ function render(elapsedTime, ctx) {
       ctx.font = "35px impact";
       ctx.fillStyle = "black";
       ctx.fillText("Level Score: " + levelScore, levelSize.width/2, canvas.height/2 + 40);
-      ctx.fillText("Enemies Destroyed: " + enemiesDestroyed, levelSize.width/2, canvas.height/2 + 80);
+      ctx.fillText("Enemies Destroyed: " + levelDestroyed, levelSize.width/2, canvas.height/2 + 80);
       ctx.fillText("Press any key to continue", levelSize.width/2, canvas.height/2 + 180);
       break;
   }
@@ -698,9 +705,6 @@ function buildLevel(){
   }
 
   // Enemy 2
-    // waitingEnemies.push(new Enemy2({x: 650, y: 100}, 0, curLevel, enemyShots, explosions))
-    // waitingEnemies.push(new Enemy2({x: 300, y: 300}, 0, curLevel, enemyShots, explosions))
-    // waitingEnemies.push(new Enemy2({x: 500, y: 550}, 0, curLevel, enemyShots, explosions))
   var multiplier = 1440;
   for(var i = 0; i < 3; i++){
     waitingEnemies.push(new Enemy2({x: 650, y: -100}, multiplier*i + 115, curLevel, enemyShots, explosions))
@@ -785,7 +789,63 @@ function buildLevel(){
   * @param {CanvasRenderingContext2D} ctx
   */
 function renderGUI(elapsedTime, ctx) {
-  // TODO: Render the GUI
+  ctx.save();
+  ctx.drawImage(gui, 0, 0, 576, 2208, 810, 0, 214, 786);
+
+  ctx.translate(830, 13);
+  // Render player shot levels
+  for(var i = 0; i < player.shotLevels.length; i++){
+    for(var j = 0; j < player.shotLevels[i]+1; j++){
+      ctx.drawImage(player.powerups[i], 0, 0, 20, 21, 42*j, 68*i, 40, 42);
+    }
+  }
+  ctx.translate(-830, -13);
+
+  // Render shields
+  if(player.shields > 0){
+    if(player.shields > 20) ctx.fillStyle = 'blue';
+    else ctx.fillStyle = 'red';
+    ctx.fillRect(891, 571, 50, -288*(player.shields)/100);
+  }
+
+  // Render "shields"
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'white';
+  ctx.strokeStyle = 'black';
+  ctx.font = "50px impact";
+  ctx.translate(938, 440);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign = "center";
+  ctx.fillText("SHIELDS", 0, 0); 
+  ctx.strokeText("SHIELDS", 0, 0); 
+  ctx.rotate(Math.PI/2);
+
+  // Render remaining lives
+  ctx.font = "30px impact";
+  ctx.translate(-65, 185);
+  ctx.fillText("Lives:", 0, 0); 
+  ctx.strokeText("Lives:", 0, 0);
+
+  ctx.translate(40, -29);
+  for(var i = 0; i < player.lives; i++){
+    ctx.drawImage(player.img, 42, 0, 21, 27, 0, 0, 27, 35);
+    ctx.translate(35, 0);
+  }
+  ctx.translate(-i*35, 0);
+
+  // Render score
+  ctx.font = "30px impact";
+  ctx.translate(0, 100);
+  ctx.fillText("Score: " + levelScore, 0, 0); 
+  ctx.strokeText("Score: " + levelScore, 0, 0);   
+
+  // Render level number
+  ctx.font = "30px impact";
+  ctx.translate(0, 70);
+  ctx.fillText("Level: " + curLevel, 0, 0); 
+  ctx.strokeText("Level: " + curLevel, 0, 0); 
+
+  ctx.restore();
 }
 
 },{"./bullet_pool":2,"./camera":3,"./enemies/enemy1":4,"./enemies/enemy2":5,"./enemies/enemy3":6,"./enemies/enemy4":7,"./enemies/enemy5":8,"./game":10,"./player":12,"./powerup":13,"./vector":20}],2:[function(require,module,exports){
@@ -1019,8 +1079,8 @@ Enemy1.prototype.update = function(time, playerPos) {
     // Fire when ready
     this.shotTimer -= time;
     if(this.shotTimer <= 0){
-        this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
-                                            y: this.position.y + 10},
+        this.enemyShots.push(new EnemyShot({x: this.position.x - 20,
+                                            y: this.position.y - 10},
                                             playerPos));
         this.shotTimer = this.shotWait;
     }
@@ -1340,8 +1400,8 @@ Enemy4.prototype.update = function(time, playerPos) {
     // Fire when ready
     this.shotTimer -= time;
     if(this.shotTimer <= 0){
-        this.enemyShots.push(new EnemyShot({x: this.position.x + 10,
-                                            y: this.position.y + 10},
+        this.enemyShots.push(new EnemyShot({x: this.position.x -12,
+                                            y: this.position.y - 10},
                                             playerPos));
         this.shotTimer = this.shotWait;
     }  
@@ -1792,6 +1852,11 @@ function Player() {
   this.height = 2 * this.imgHeight;
   this.draw_height = this.height;
   this.explosion = null;
+  this.powerups = [];
+  for(var i = 1; i < 5; i++){
+    this.powerups.push(new Image());
+    this.powerups[i-1].src = 'assets/using/powerups/powerup_' + i + '.png';
+  }
 }
 
 Player.prototype.debug = function(key){
@@ -1962,11 +2027,7 @@ Player.prototype.render = function(elapsedTime, ctx) {
       ctx.drawImage(this.shield, 0 ,0, 556, 556, -11, -5, 70, 70);  
     }
   }
-
-
-
   ctx.restore();
-
 }
 
 /**
@@ -2191,6 +2252,7 @@ Shot1.prototype.render = function(time, ctx) {
 "use strict";
 
 const SPEED = 8;
+const SmokeParticles = require('../smoke_particles');
 
 /**
  * @module exports the Shot2 class
@@ -2212,12 +2274,14 @@ function Shot2(position, direction) {
     y: position.y
   };
   this.image = new Image();
+  this.smokeParticles = new SmokeParticles(400, '124,252,0');
   this.image.src = 'assets/using/shots/shots_2.png';
   this.remove = false;
   this.width = 18;
   this.height = 18;
   this.draw_width = 18;
   this.draw_height = 18;
+  this.particleTimer = 5;
 }
 
 
@@ -2230,10 +2294,22 @@ Shot2.prototype.update = function(time) {
   this.position.y -= SPEED;
   this.position.x += SPEED * this.direction;
 
-  if(this.position.x < -50 || this.position.x > this.worldWidth ||
-     this.position.y < -50 || this.position.y > this.worldHeight){
+  if(this.position.x < -200 || this.position.x > this.worldWidth + 200||
+     this.position.y < -200 || this.position.y > this.worldHeight + 200){
     this.remove = true;;
   }
+  this.particleTimer--;
+  if(this.particleTimer <= 0){
+    // emit smoke
+    if(this.direction == 1)
+    this.smokeParticles.emit({x: this.position.x + 10, y: this.position.y + 25});  
+    else if(this.direction == -1)
+    this.smokeParticles.emit({x: this.position.x, y: this.position.y + 18});      
+    this.particleTimer = 5;
+  }
+
+  // update smoke
+  this.smokeParticles.update(time);
 }
 
 /**
@@ -2245,9 +2321,12 @@ Shot2.prototype.render = function(time, ctx) {
     ctx.translate(this.position.x, this.position.y);
     ctx.drawImage(this.image, 6 + 6*this.direction ,0, 12, 12, 0, 20, this.draw_width, this.draw_height);  
     ctx.translate(-this.position.x, -this.position.y);
+
+    // Draw Smoke
+    this.smokeParticles.render(time, ctx);    
 }
 
-},{}],17:[function(require,module,exports){
+},{"../smoke_particles":19}],17:[function(require,module,exports){
 "use strict";
 
 const SPEED = 5;
@@ -2275,9 +2354,10 @@ function Shot3(position, level) {
   this.image = new Image();
   this.image.src = 'assets/using/shots/shots_3.png';
   this.remove = false;
-  this.smokeParticles = new SmokeParticles(400);  
+  this.smokeParticles = new SmokeParticles(400, '160, 160, 160');  
   this.draw_height = 28;
   this.draw_width = 18;
+  this.particleTimer = 2;
   switch(level){
     case 0:
       this.width = 14;
@@ -2302,8 +2382,15 @@ Shot3.prototype.update = function(time) {
      this.position.y < -200 || this.position.y > this.worldHeight){
     this.remove = true;;
   }
-  // emit smoke
-  this.smokeParticles.emit({x: this.position.x + 9, y: this.position.y + 50});  
+
+
+  this.particleTimer--;
+  if(this.particleTimer <= 0){
+    // emit smoke
+    this.smokeParticles.emit({x: this.position.x + 9, y: this.position.y + 50});  
+
+    this.particleTimer = 2;
+  }  
 
   // update smoke
   this.smokeParticles.update(time);
@@ -2327,6 +2414,7 @@ Shot3.prototype.render = function(time, ctx) {
 "use strict";
 
 const SPEED = 8;
+const SmokeParticles = require('../smoke_particles');
 
 /**
  * @module exports the Shot4 class
@@ -2344,6 +2432,7 @@ function Shot4(position, direction, level) {
   this.worldHeight = 750;
   this.direction = direction;
   this.level = level;
+  this.smokeParticles = new SmokeParticles(400, '255,255,102');
   this.position = {
     x: position.x + 11 + 10*this.direction,
     y: position.y
@@ -2353,6 +2442,7 @@ function Shot4(position, direction, level) {
   this.remove = false;
   this.draw_height = 20;
   this.draw_width = 28;  
+  this.particleTimer = 5;  
   switch(level){
     case 0: 
       this.width = 14;
@@ -2380,10 +2470,22 @@ Shot4.prototype.update = function(time) {
   // Apply velocity
   this.position.x += SPEED * this.direction;
 
-  if(this.position.x < 0 || this.position.x > this.worldWidth ||
-     this.position.y < 0 || this.position.y > this.worldHeight){
+  if(this.position.x < -200 || this.position.x > this.worldWidth + 200||
+     this.position.y < -200 || this.position.y > this.worldHeight + 200){
     this.remove = true;;
   }
+
+  this.particleTimer--;
+  if(this.particleTimer <= 0){
+    // emit smoke
+    // if(this.direction == 1)
+    this.smokeParticles.emit({x: this.position.x + 10, y: this.position.y + 28});  
+    // else if(this.direction == -1)
+    // this.smokeParticles.emit({x: this.position.x, y: this.position.y + 18});      
+    this.particleTimer = 5;
+  }
+  // update smoke
+  this.smokeParticles.update(time);  
 }
 
 /**
@@ -2396,9 +2498,11 @@ Shot4.prototype.render = function(time, ctx) {
     ctx.drawImage(this.image, 28*this.level + 7 + 7*this.direction ,0, 14, 10, 0, 20, this.draw_width, this.draw_height );  
     ctx.translate(-this.position.x, -this.position.y);
 
+    // Draw Smoke
+    this.smokeParticles.render(time, ctx);
 }
 
-},{}],19:[function(require,module,exports){
+},{"../smoke_particles":19}],19:[function(require,module,exports){
 "use strict";
 
 /**
@@ -2413,7 +2517,8 @@ module.exports = exports = SmokeParticles;
  * Creates a SmokeParticles engine of the specified size
  * @param {uint} size the maximum number of particles to exist concurrently
  */
-function SmokeParticles(maxSize) {
+function SmokeParticles(maxSize, color) {
+  this.color = color;
   this.pool = new Float32Array(3 * maxSize);
   this.start = 0;
   this.end = 0;
@@ -2447,7 +2552,7 @@ SmokeParticles.prototype.emit = function(position) {
  */
 SmokeParticles.prototype.update = function(elapsedTime) {
   function updateParticle(i) {
-    this.pool[3*i+2] += elapsedTime;
+    this.pool[3*i+2] += 1.5*elapsedTime;
     if(this.pool[3*i+2] > 2000) this.start = i;
   }
   var i;
@@ -2484,7 +2589,7 @@ SmokeParticles.prototype.render = function(elapsedTime, ctx) {
       0,
       2*Math.PI
     );
-    ctx.fillStyle = 'rgba(160, 160, 160,' + alpha + ')';
+    ctx.fillStyle = 'rgba(' + this.color + ',' + alpha + ')';
     ctx.fill();
   }
 
